@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.qbt-labs/openmm-mcp",
+  "name": "io.github.adacapo21/openmm-mcp",
   "description": "AI-native crypto trading MCP server — market data, orders, grid strategies & DeFi",
   "repository": {
     "url": "https://github.com/QBT-Labs/openMM-MCP",
