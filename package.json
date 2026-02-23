@@ -33,6 +33,11 @@
   ],
   "author": "QBT Labs",
   "license": "MIT",
+  "mcpName": "io.github.qbt-labs/openmm-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QBT-Labs/openMM-MCP.git"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@3rd-eye-labs/openmm": "0.1.0",
