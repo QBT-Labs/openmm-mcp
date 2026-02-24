@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@qbtlabs/openmm-mcp.svg)](https://www.npmjs.com/package/@qbtlabs/openmm-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@qbtlabs/openmm-mcp.svg)](https://www.npmjs.com/package/@qbtlabs/openmm-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QBT-Labs/OpenMM-MCP)
 
 MCP (Model Context Protocol) server for [OpenMM](https://github.com/3rd-Eye-Labs/OpenMM) — exposes market data, account, trading, and strategy tools to AI agents via Claude Desktop, Claude Code, Cursor, Windsurf, and other MCP clients.
 
