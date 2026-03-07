@@ -1,6 +1,6 @@
 # @qbtlabs/openmm-mcp
 
-[![Smithery](https://smithery.ai/badge/@qbtlabs/openmm-mcp)](https://smithery.ai/server/@qbtlabs/openmm-mcp)
+[![smithery badge](https://smithery.ai/badge/qbtlabs/openmm-mcp)](https://smithery.ai/servers/qbtlabs/openmm-mcp)
 [![npm version](https://img.shields.io/npm/v/@qbtlabs/openmm-mcp.svg)](https://www.npmjs.com/package/@qbtlabs/openmm-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@qbtlabs/openmm-mcp.svg)](https://www.npmjs.com/package/@qbtlabs/openmm-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
