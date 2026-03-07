@@ -1,5 +1,6 @@
 # @qbtlabs/openmm-mcp
 
+[![Smithery](https://smithery.ai/badge/@qbtlabs/openmm-mcp)](https://smithery.ai/server/@qbtlabs/openmm-mcp)
 [![npm version](https://img.shields.io/npm/v/@qbtlabs/openmm-mcp.svg)](https://www.npmjs.com/package/@qbtlabs/openmm-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@qbtlabs/openmm-mcp.svg)](https://www.npmjs.com/package/@qbtlabs/openmm-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -139,15 +140,34 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
+### Remote Server
+
+Connect directly to the hosted server — no local install required:
+
+```
+https://openmm-mcp.qbtlabs.io/mcp
+```
+
 ### Any MCP-Compatible Client
 
-The server uses **stdio** transport. Point your client at:
+The server uses **stdio** transport by default. Point your client at:
 
 ```
 npx @qbtlabs/openmm-mcp
 ```
 
 Pass exchange credentials as environment variables (see [Supported Exchanges](#supported-exchanges)).
+
+### HTTP Mode
+
+Run the server with HTTP transport (Streamable HTTP + SSE):
+
+```bash
+MCP_TRANSPORT=http PORT=3000 npx @qbtlabs/openmm-mcp
+```
+
+- `POST /mcp` — MCP endpoint
+- `GET /health` — Health check
 
 ## Example Usage
 

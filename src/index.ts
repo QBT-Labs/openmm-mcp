@@ -22,10 +22,54 @@ export function createServer(): McpServer {
   return server;
 }
 
-async function main(): Promise<void> {
+// Smithery uses this to scan tools/resources without real credentials.
+export function createSandboxServer(): McpServer {
+  return createServer();
+}
+
+async function startHttpServer(): Promise<void> {
+  const { createServer: createHttpServer } = await import('node:http');
+  const { randomUUID } = await import('node:crypto');
+  const { StreamableHTTPServerTransport } = await import(
+    '@modelcontextprotocol/sdk/server/streamableHttp.js'
+  );
+
   const server = createServer();
-  const transport = new StdioServerTransport();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
   await server.connect(transport);
+
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const httpServer = createHttpServer(async (req, res) => {
+    if (req.url === '/health' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+
+    if (req.url === '/mcp') {
+      await transport.handleRequest(req, res);
+      return;
+    }
+
+    res.writeHead(404);
+    res.end('Not found');
+  });
+
+  httpServer.listen(port, () => {
+    process.stderr.write(`OpenMM MCP HTTP server listening on port ${port}\n`);
+  });
+}
+
+async function main(): Promise<void> {
+  if (process.env.MCP_TRANSPORT === 'http') {
+    await startHttpServer();
+  } else {
+    const server = createServer();
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+  }
 }
 
 main().catch((error: unknown) => {
