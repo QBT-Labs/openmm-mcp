@@ -19,7 +19,8 @@ export default {
       const card = {
         name: 'openmm-mcp-agent',
         version: '1.0.4',
-        description: 'MCP server for OpenMM — exposes market data, account, trading, and strategy tools to AI agents',
+        description:
+          'MCP server for OpenMM — exposes market data, account, trading, and strategy tools to AI agents',
         url: 'https://openmm-mcp.qbtlabs.io/mcp',
         transport: { type: 'streamable-http' },
         capabilities: {
@@ -61,9 +62,8 @@ export default {
       }) as never;
 
       const { createServer } = await import('./index.js');
-      const { WebStandardStreamableHTTPServerTransport } = await import(
-        '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
-      );
+      const { WebStandardStreamableHTTPServerTransport } =
+        await import('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js');
 
       const server = createServer();
       const transport = new WebStandardStreamableHTTPServerTransport({
