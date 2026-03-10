@@ -38,6 +38,29 @@ X402_VERIFY_MODE=full
 - On-chain nonce check (prevents replay)
 - On-chain USDC balance check
 
+## Execution Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `local` | Local verification only, no settlement | Development, testing |
+| `facilitator` | Coinbase x402 facilitator for verify + settle | Production |
+
+Set `X402_MODE=facilitator` for production to use Coinbase's facilitator network.
+
+```bash
+# Development (default)
+X402_MODE=local
+
+# Production
+X402_MODE=facilitator
+X402_FACILITATOR_URL=https://x402.org
+```
+
+The facilitator handles:
+- Payment signature verification
+- On-chain settlement (submits the transferWithAuthorization tx)
+- Transaction confirmation
+
 ## Pricing Tiers
 
 | Tier | Price | Tools |

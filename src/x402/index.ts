@@ -49,6 +49,15 @@ export {
   executeEvmPayment,
 } from './verify-evm.js';
 
+// Facilitator integration
+export {
+  buildPaymentRequirements as buildFacilitatorRequirements,
+  verifyWithFacilitator,
+  settleWithFacilitator,
+  processPayment,
+  checkFacilitatorHealth,
+} from './facilitator.js';
+
 // Middleware
 export {
   withX402,

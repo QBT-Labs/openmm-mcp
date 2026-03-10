@@ -3,6 +3,12 @@
  *
  * Wraps MCP tool handlers with payment requirements.
  * Returns HTTP 402 with payment options if not paid.
+ *
+ * Modes:
+ * - local: Use local verification (fast, for dev/testing)
+ * - facilitator: Use Coinbase x402 facilitator (production)
+ *
+ * Set X402_MODE=facilitator for production.
  */
 
 import {
@@ -10,7 +16,11 @@ import {
   isX402Enabled,
   buildPaymentRequirements,
 } from './config.js';
-import { verifyPayment } from './verify.js';
+import { verifyPayment, parsePaymentSignature } from './verify.js';
+import { verifyWithFacilitator, settleWithFacilitator } from './facilitator.js';
+
+// Execution mode
+const X402_MODE = process.env.X402_MODE || 'local';
 
 // MCP tool handler type
 type ToolHandler<T = unknown> = (
@@ -115,15 +125,42 @@ export function withX402<T extends ParamsWithPayment>(
       return createPaymentRequiredResponse(toolName, pricing.price);
     }
 
-    // Verify payment
-    const verification = await verifyPayment(paymentSignature, pricing.price);
+    // Parse the payment signature
+    const payment = parsePaymentSignature(paymentSignature);
+    if (!payment) {
+      return createPaymentErrorResponse(toolName, 'Invalid payment signature format');
+    }
+
+    // Verify payment (local or via facilitator)
+    let verification: { valid: boolean; error?: string };
+
+    if (X402_MODE === 'facilitator') {
+      // Production: Use Coinbase x402 facilitator
+      verification = await verifyWithFacilitator(payment, toolName);
+    } else {
+      // Development: Use local verification
+      verification = await verifyPayment(paymentSignature, pricing.price);
+    }
 
     if (!verification.valid) {
       return createPaymentErrorResponse(toolName, verification.error || 'Unknown error');
     }
 
     // Payment verified - execute the tool
-    return handler(params, extra);
+    const result = await handler(params, extra);
+
+    // Settle payment via facilitator (production only)
+    if (X402_MODE === 'facilitator') {
+      const settlement = await settleWithFacilitator(payment, toolName);
+      if (!settlement.success) {
+        console.error(`Payment settlement failed for ${toolName}:`, settlement.error);
+        // Don't fail the request - log and continue
+      } else if (settlement.txHash) {
+        console.log(`Payment settled for ${toolName}: ${settlement.txHash}`);
+      }
+    }
+
+    return result;
   };
 }
 
