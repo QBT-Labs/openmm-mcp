@@ -117,7 +117,9 @@ export async function verifyEvmPayment(
     // Basic mode: Trust the signature format
     // WARNING: Not cryptographically secure - use X402_VERIFY_MODE=full for production
     if (verifyMode === 'basic') {
-      console.warn('x402: Using basic verification mode - set X402_VERIFY_MODE=full for production');
+      console.warn(
+        'x402: Using basic verification mode - set X402_VERIFY_MODE=full for production'
+      );
     }
 
     return { valid: true };

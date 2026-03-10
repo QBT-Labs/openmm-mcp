@@ -108,8 +108,8 @@ describe('x402 Config', () => {
       process.env.X402_SOLANA_ADDRESS = 'SoLAddressHere123456789012345678901234567890';
       const requirements = buildPaymentRequirements(0.001);
       expect(requirements.accepts).toHaveLength(2);
-      expect(requirements.accepts.map(a => a.network)).toContain('eip155:8453');
-      expect(requirements.accepts.map(a => a.network)).toContain('solana:mainnet');
+      expect(requirements.accepts.map((a) => a.network)).toContain('eip155:8453');
+      expect(requirements.accepts.map((a) => a.network)).toContain('solana:mainnet');
     });
 
     it('correctly converts micro-units', () => {

@@ -11,11 +11,7 @@
  * Set X402_MODE=facilitator for production.
  */
 
-import {
-  getToolPricing,
-  isX402Enabled,
-  buildPaymentRequirements,
-} from './config.js';
+import { getToolPricing, isX402Enabled, buildPaymentRequirements } from './config.js';
 import { verifyPayment, parsePaymentSignature } from './verify.js';
 import { verifyWithFacilitator, settleWithFacilitator } from './facilitator.js';
 
@@ -52,7 +48,8 @@ function createPaymentRequiredResponse(
     price: priceUsd,
     priceFormatted: `$${priceUsd.toFixed(4)}`,
     ...requirements,
-    message: `This tool requires payment of $${priceUsd.toFixed(4)} USDC. ` +
+    message:
+      `This tool requires payment of $${priceUsd.toFixed(4)} USDC. ` +
       `Include a Payment-Signature header with your request.`,
     docs: 'https://docs.cdp.coinbase.com/x402/welcome',
   };
@@ -116,9 +113,7 @@ export function withX402<T extends ParamsWithPayment>(
     }
 
     // Check for payment signature in params or extra metadata
-    const paymentSignature =
-      params._meta?.paymentSignature ||
-      extra?._meta?.paymentSignature;
+    const paymentSignature = params._meta?.paymentSignature || extra?._meta?.paymentSignature;
 
     // No payment provided - return 402
     if (!paymentSignature) {
@@ -167,9 +162,9 @@ export function withX402<T extends ParamsWithPayment>(
 /**
  * Create a wrapped tool registration function
  */
-export function createX402ToolRegistrar(
-  server: { tool: (name: string, description: string, schema: unknown, handler: ToolHandler) => void }
-) {
+export function createX402ToolRegistrar(server: {
+  tool: (name: string, description: string, schema: unknown, handler: ToolHandler) => void;
+}) {
   return function registerTool<T extends ParamsWithPayment>(
     name: string,
     description: string,

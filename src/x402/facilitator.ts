@@ -94,9 +94,7 @@ export async function verifyWithFacilitator(
 
   // Find matching requirement
   const acceptedNetwork = payment.accepted?.network;
-  const matchingRequirement = requirements.accepts.find(
-    (r) => r.network === acceptedNetwork
-  );
+  const matchingRequirement = requirements.accepts.find((r) => r.network === acceptedNetwork);
 
   if (!matchingRequirement) {
     return { valid: false, error: `Unsupported network: ${acceptedNetwork}` };
@@ -120,7 +118,7 @@ export async function verifyWithFacilitator(
       return { valid: false, error: `Facilitator error: ${response.status} ${errorText}` };
     }
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       isValid?: boolean;
       valid?: boolean;
       invalidReason?: string;
@@ -151,9 +149,7 @@ export async function settleWithFacilitator(
 
   // Find matching requirement
   const acceptedNetwork = payment.accepted?.network;
-  const matchingRequirement = requirements.accepts.find(
-    (r) => r.network === acceptedNetwork
-  );
+  const matchingRequirement = requirements.accepts.find((r) => r.network === acceptedNetwork);
 
   if (!matchingRequirement) {
     return { success: false, error: `Unsupported network: ${acceptedNetwork}` };
@@ -177,7 +173,7 @@ export async function settleWithFacilitator(
       return { success: false, error: `Settlement error: ${response.status} ${errorText}` };
     }
 
-    const result = await response.json() as {
+    const result = (await response.json()) as {
       success?: boolean;
       settled?: boolean;
       txHash?: string;

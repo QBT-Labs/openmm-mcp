@@ -36,8 +36,10 @@ const BASE_RPC = {
 };
 
 // EIP-712 type definitions for TransferWithAuthorization
-const EIP712_DOMAIN_TYPE = 'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)';
-const TRANSFER_AUTH_TYPE = 'TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)';
+const EIP712_DOMAIN_TYPE =
+  'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)';
+const TRANSFER_AUTH_TYPE =
+  'TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)';
 
 /**
  * Keccak256 hash
@@ -124,10 +126,7 @@ function computeStructHash(
 /**
  * Compute the final EIP-712 hash to be signed
  */
-function computeTypedDataHash(
-  domainSeparator: Buffer,
-  structHash: Buffer
-): Buffer {
+function computeTypedDataHash(domainSeparator: Buffer, structHash: Buffer): Buffer {
   const prefix = Buffer.from([0x19, 0x01]);
   return keccak256(Buffer.concat([prefix, domainSeparator, structHash]));
 }
@@ -149,10 +148,9 @@ function recoverSigner(hash: Buffer, signature: string): string | null {
     const recoveryId = v >= 27 ? v - 27 : v;
 
     // Create signature object and recover public key
-    const sigObj = new secp256k1.Signature(
-      BigInt('0x' + r),
-      BigInt('0x' + s)
-    ).addRecoveryBit(recoveryId);
+    const sigObj = new secp256k1.Signature(BigInt('0x' + r), BigInt('0x' + s)).addRecoveryBit(
+      recoveryId
+    );
 
     const publicKey = sigObj.recoverPublicKey(hash);
     // Get uncompressed public key bytes (65 bytes: 04 || x || y)
@@ -171,11 +169,7 @@ function recoverSigner(hash: Buffer, signature: string): string | null {
 /**
  * Call Base RPC
  */
-async function callBaseRpc(
-  network: string,
-  method: string,
-  params: unknown[]
-): Promise<unknown> {
+async function callBaseRpc(network: string, method: string, params: unknown[]): Promise<unknown> {
   const isTestnet = network === 'eip155:84532';
   const rpcUrl = isTestnet ? BASE_RPC.sepolia : BASE_RPC.mainnet;
 
@@ -190,7 +184,7 @@ async function callBaseRpc(
     }),
   });
 
-  const data = await response.json() as { result?: unknown; error?: { message: string } };
+  const data = (await response.json()) as { result?: unknown; error?: { message: string } };
   if (data.error) {
     throw new Error(data.error.message);
   }
@@ -207,10 +201,10 @@ async function checkUsdcBalance(address: string, network: string): Promise<bigin
   // balanceOf(address) selector = 0x70a08231
   const data = '0x70a08231' + address.replace('0x', '').toLowerCase().padStart(64, '0');
 
-  const result = await callBaseRpc(network, 'eth_call', [
+  const result = (await callBaseRpc(network, 'eth_call', [
     { to: usdcContract, data },
     'latest',
-  ]) as string;
+  ])) as string;
 
   return BigInt(result || '0x0');
 }
@@ -218,11 +212,7 @@ async function checkUsdcBalance(address: string, network: string): Promise<bigin
 /**
  * Check if nonce has been used (authorizationState mapping)
  */
-async function isNonceUsed(
-  authorizer: string,
-  nonce: string,
-  network: string
-): Promise<boolean> {
+async function isNonceUsed(authorizer: string, nonce: string, network: string): Promise<boolean> {
   const usdcContract = USDC_CONTRACTS[network as keyof typeof USDC_CONTRACTS];
   if (!usdcContract) return false;
 
@@ -233,10 +223,10 @@ async function isNonceUsed(
     nonce.replace('0x', '').padStart(64, '0');
 
   try {
-    const result = await callBaseRpc(network, 'eth_call', [
+    const result = (await callBaseRpc(network, 'eth_call', [
       { to: usdcContract, data },
       'latest',
-    ]) as string;
+    ])) as string;
 
     // 0 = unused, 1 = used
     return result !== '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -309,12 +299,7 @@ export async function verifyEvmPaymentFull(
     const tokenName = (payment.accepted as { extra?: { name?: string } }).extra?.name || 'USD Coin';
     const tokenVersion = '2'; // USDC uses version 2
 
-    const domainSeparator = computeDomainSeparator(
-      tokenName,
-      tokenVersion,
-      chainId,
-      usdcContract
-    );
+    const domainSeparator = computeDomainSeparator(tokenName, tokenVersion, chainId, usdcContract);
 
     const structHash = computeStructHash(
       authorization.from,

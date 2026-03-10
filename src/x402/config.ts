@@ -129,9 +129,7 @@ export function buildPaymentRequirements(priceUsd: number): {
 
   for (const network of networks) {
     const asset = USDC_CONTRACTS[network as keyof typeof USDC_CONTRACTS];
-    const payTo = network.startsWith('eip155')
-      ? PAYMENT_ADDRESSES.evm
-      : PAYMENT_ADDRESSES.solana;
+    const payTo = network.startsWith('eip155') ? PAYMENT_ADDRESSES.evm : PAYMENT_ADDRESSES.solana;
 
     if (asset && payTo) {
       accepts.push({

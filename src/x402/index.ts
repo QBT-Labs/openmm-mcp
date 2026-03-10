@@ -44,10 +44,7 @@ export {
 } from './verify.js';
 
 // Production EVM verification
-export {
-  verifyEvmPaymentFull,
-  executeEvmPayment,
-} from './verify-evm.js';
+export { verifyEvmPaymentFull, executeEvmPayment } from './verify-evm.js';
 
 // Facilitator integration
 export {
@@ -59,8 +56,4 @@ export {
 } from './facilitator.js';
 
 // Middleware
-export {
-  withX402,
-  createX402ToolRegistrar,
-  getAllToolPricing,
-} from './middleware.js';
+export { withX402, createX402ToolRegistrar, getAllToolPricing } from './middleware.js';

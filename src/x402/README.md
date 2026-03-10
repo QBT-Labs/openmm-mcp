@@ -26,12 +26,13 @@ X402_VERIFY_MODE=full
 
 ## Verification Modes
 
-| Mode | Security | Speed | Use Case |
-|------|----------|-------|----------|
-| `basic` | ⚠️ Low | Fast | Development, testing |
-| `full` | ✅ High | ~500ms | Production |
+| Mode    | Security | Speed  | Use Case             |
+| ------- | -------- | ------ | -------------------- |
+| `basic` | ⚠️ Low   | Fast   | Development, testing |
+| `full`  | ✅ High  | ~500ms | Production           |
 
 **Full verification includes:**
+
 - EIP-712 typed data hash computation
 - secp256k1 signature recovery
 - Signer address verification
@@ -40,10 +41,10 @@ X402_VERIFY_MODE=full
 
 ## Execution Modes
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `local` | Local verification only, no settlement | Development, testing |
-| `facilitator` | Coinbase x402 facilitator for verify + settle | Production |
+| Mode          | Description                                   | Use Case             |
+| ------------- | --------------------------------------------- | -------------------- |
+| `local`       | Local verification only, no settlement        | Development, testing |
+| `facilitator` | Coinbase x402 facilitator for verify + settle | Production           |
 
 Set `X402_MODE=facilitator` for production to use Coinbase's facilitator network.
 
@@ -57,18 +58,19 @@ X402_FACILITATOR_URL=https://x402.org
 ```
 
 The facilitator handles:
+
 - Payment signature verification
 - On-chain settlement (submits the transferWithAuthorization tx)
 - Transaction confirmation
 
 ## Pricing Tiers
 
-| Tier | Price | Tools |
-|------|-------|-------|
-| Free | $0 | - |
-| Read | $0.001 | `get_ticker`, `get_orderbook`, `get_trades`, `get_balance`, `list_orders` |
-| Analysis | $0.005 | `cardano_price`, `discover_pools`, `grid_status` |
-| Write | $0.01 | `place_order`, `cancel_order` |
+| Tier     | Price  | Tools                                                                     |
+| -------- | ------ | ------------------------------------------------------------------------- |
+| Free     | $0     | -                                                                         |
+| Read     | $0.001 | `get_ticker`, `get_orderbook`, `get_trades`, `get_balance`, `list_orders` |
+| Analysis | $0.005 | `cardano_price`, `discover_pools`, `grid_status`                          |
+| Write    | $0.01  | `place_order`, `cancel_order`                                             |
 
 ## Client Integration
 
@@ -140,12 +142,12 @@ When payment is required, the tool returns:
 
 ## Supported Networks
 
-| Network | Chain ID | USDC Contract |
-|---------|----------|---------------|
-| Base Mainnet | eip155:8453 | 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 |
-| Base Sepolia | eip155:84532 | 0x036CbD53842c5426634e7929541eC2318f3dCF7e |
+| Network        | Chain ID       | USDC Contract                                |
+| -------------- | -------------- | -------------------------------------------- |
+| Base Mainnet   | eip155:8453    | 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913   |
+| Base Sepolia   | eip155:84532   | 0x036CbD53842c5426634e7929541eC2318f3dCF7e   |
 | Solana Mainnet | solana:mainnet | EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v |
-| Solana Devnet | solana:devnet | 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU |
+| Solana Devnet  | solana:devnet  | 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU |
 
 ## Development
 
