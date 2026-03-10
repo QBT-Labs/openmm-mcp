@@ -19,7 +19,24 @@ X402_SOLANA_ADDRESS=So11...
 
 # Use testnet networks (Base Sepolia, Solana Devnet)
 X402_TESTNET=false
+
+# Verification mode: 'basic' (fast) or 'full' (production)
+X402_VERIFY_MODE=full
 ```
+
+## Verification Modes
+
+| Mode | Security | Speed | Use Case |
+|------|----------|-------|----------|
+| `basic` | ⚠️ Low | Fast | Development, testing |
+| `full` | ✅ High | ~500ms | Production |
+
+**Full verification includes:**
+- EIP-712 typed data hash computation
+- secp256k1 signature recovery
+- Signer address verification
+- On-chain nonce check (prevents replay)
+- On-chain USDC balance check
 
 ## Pricing Tiers
 
