@@ -5,10 +5,22 @@
  * Following Coinbase x402 format for Base (EVM) and Solana payments.
  */
 
-// Payment receiver addresses
+// Payment receiver addresses (read dynamically)
+export function getPaymentAddresses() {
+  return {
+    evm: process.env.X402_EVM_ADDRESS || '',
+    solana: process.env.X402_SOLANA_ADDRESS || '',
+  };
+}
+
+// Legacy export for backward compatibility
 export const PAYMENT_ADDRESSES = {
-  evm: process.env.X402_EVM_ADDRESS || '',
-  solana: process.env.X402_SOLANA_ADDRESS || '',
+  get evm() {
+    return process.env.X402_EVM_ADDRESS || '';
+  },
+  get solana() {
+    return process.env.X402_SOLANA_ADDRESS || '';
+  },
 };
 
 // USDC contract addresses
