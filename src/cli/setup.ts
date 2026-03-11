@@ -183,18 +183,30 @@ async function main(): Promise<void> {
   const platform = process.platform as 'darwin' | 'win32' | 'linux';
 
   try {
-    // Select client
-    const clients = Object.keys(CONFIG_PATHS);
-    const selectedClient = await selectOption(rl, 'Select your MCP client:', clients);
+    // Select clients (multi-select)
+    const clientOptions = Object.keys(CONFIG_PATHS).map((name) => ({ id: name, name }));
+    const selectedClientNames = await selectMultiple(
+      rl,
+      'Which MCP clients do you want to configure?',
+      clientOptions
+    );
 
-    // Get config path
-    const configPath = CONFIG_PATHS[selectedClient][platform];
-    if (!configPath) {
-      console.error(`❌ Unsupported platform: ${platform}`);
+    // Get config paths for selected clients
+    const selectedClients: { name: string; path: string }[] = [];
+    for (const clientName of selectedClientNames) {
+      const configPath = CONFIG_PATHS[clientName][platform];
+      if (configPath) {
+        selectedClients.push({ name: clientName, path: configPath });
+      }
+    }
+
+    if (selectedClients.length === 0) {
+      console.error(`❌ No supported clients for platform: ${platform}`);
       process.exit(1);
     }
 
-    console.log(`\n📁 Config file: ${configPath}`);
+    console.log(`\n📁 Will configure ${selectedClients.length} client(s):`);
+    selectedClients.forEach((c) => console.log(`   • ${c.name}: ${c.path}`));
 
     // Select exchanges
     const exchangeOptions = EXCHANGES.map((e) => ({ id: e.id, name: e.name }));
@@ -226,48 +238,52 @@ async function main(): Promise<void> {
       }
     }
 
-    // Read existing config
-    const config = readConfig(configPath);
+    // Write config to all selected clients
+    for (const client of selectedClients) {
+      // Read existing config
+      const config = readConfig(client.path);
 
-    // Ensure mcpServers exists
-    if (!config.mcpServers) {
-      config.mcpServers = {};
+      // Ensure mcpServers exists
+      if (!config.mcpServers) {
+        config.mcpServers = {};
+      }
+
+      const existingServers = config.mcpServers as Record<string, unknown>;
+
+      // Check for existing openmm config and preserve existing keys
+      const existingOpenmm = existingServers['openmm'] as { env?: Record<string, string> } | undefined;
+      const existingEnv = existingOpenmm?.env || {};
+
+      // Merge existing env with new credentials (new values override)
+      const mergedEnv = { ...existingEnv, ...env };
+
+      // Add openmm server
+      existingServers['openmm'] = {
+        command: 'npx',
+        args: ['-y', '@qbtlabs/openmm-mcp'],
+        env: mergedEnv,
+      };
+
+      // Write config
+      writeConfig(client.path, config);
+
+      console.log(`\n✅ OpenMM configured for ${client.name}`);
+      console.log(`   ${client.path}`);
     }
-
-    const existingServers = config.mcpServers as Record<string, unknown>;
-
-    // Check for existing openmm config and preserve existing keys
-    const existingOpenmm = existingServers['openmm'] as { env?: Record<string, string> } | undefined;
-    const existingEnv = existingOpenmm?.env || {};
-
-    // Merge existing env with new credentials (new values override)
-    const mergedEnv = { ...existingEnv, ...env };
-
-    // Add openmm server
-    existingServers['openmm'] = {
-      command: 'npx',
-      args: ['-y', 'openmm-mcp'],
-      env: mergedEnv,
-    };
-
-    // Write config
-    writeConfig(configPath, config);
-
-    console.log(`\n✅ OpenMM configured for ${selectedClient}`);
-    console.log(`   ${configPath}`);
 
     // Show configured exchanges
     const configuredExchanges: string[] = [];
-    if (mergedEnv.MEXC_API_KEY) configuredExchanges.push('MEXC');
-    if (mergedEnv.GATEIO_API_KEY) configuredExchanges.push('Gate.io');
-    if (mergedEnv.KRAKEN_API_KEY) configuredExchanges.push('Kraken');
-    if (mergedEnv.BITGET_API_KEY) configuredExchanges.push('Bitget');
+    if (env.MEXC_API_KEY) configuredExchanges.push('MEXC');
+    if (env.GATEIO_API_KEY) configuredExchanges.push('Gate.io');
+    if (env.KRAKEN_API_KEY) configuredExchanges.push('Kraken');
+    if (env.BITGET_API_KEY) configuredExchanges.push('Bitget');
 
     if (configuredExchanges.length > 0) {
       console.log(`\n📊 Configured exchanges: ${configuredExchanges.join(', ')}`);
     }
 
-    console.log(`\n🔄 Restart ${selectedClient} to activate the changes.`);
+    const clientNames = selectedClients.map((c) => c.name).join(', ');
+    console.log(`\n🔄 Restart ${clientNames} to activate the changes.`);
     console.log('\n💡 Try asking your agent: "What is my balance on MEXC?"\n');
   } finally {
     rl.close();
