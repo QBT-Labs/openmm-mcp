@@ -42,8 +42,8 @@ The setup wizard will:
 
 ```bash
 # 2. Install & Setup OpenMM CLI
-npm install -g openmm
-npx openmm setup
+npm install -g @3rd-eye-labs/openmm
+npx @3rd-eye-labs/openmm setup
 ```
 
 Creates a `.env` file with your exchange credentials for direct CLI usage.
