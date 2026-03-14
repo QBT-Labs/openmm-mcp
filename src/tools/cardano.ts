@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { checkPayment } from '../x402-setup.js';
+import { executeWithPayment } from '../x402-setup.js';
 
 const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
 
@@ -123,11 +123,7 @@ export function registerCardanoTools(server: McpServer): void {
       payment: PaymentParam,
     },
     async ({ symbol, payment }) => {
-      const paymentError = await checkPayment('cardano_price', payment);
-      if (paymentError) {
-        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
-      }
-
+      return executeWithPayment('cardano_price', payment, async () => {
       const upper = symbol.toUpperCase();
       const token = SUPPORTED_TOKENS[upper];
       if (!token) {
@@ -200,6 +196,7 @@ export function registerCardanoTools(server: McpServer): void {
           },
         ],
       };
+      });
     }
   );
 
@@ -211,11 +208,7 @@ export function registerCardanoTools(server: McpServer): void {
       payment: PaymentParam,
     },
     async ({ symbol, payment }) => {
-      const paymentError = await checkPayment('discover_pools', payment);
-      if (paymentError) {
-        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
-      }
-
+      return executeWithPayment('discover_pools', payment, async () => {
       const upper = symbol.toUpperCase();
       const token = SUPPORTED_TOKENS[upper];
       if (!token) {
@@ -254,6 +247,7 @@ export function registerCardanoTools(server: McpServer): void {
           },
         ],
       };
+      });
     }
   );
 }

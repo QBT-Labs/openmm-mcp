@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ExchangeParam, SymbolParam, validateSymbol } from '../utils/index.js';
 import { validateExchange, getConnectorSafe } from '../exchange/exchange-manager.js';
-import { checkPayment } from '../x402-setup.js';
+import { executeWithPayment } from '../x402-setup.js';
 
 const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
 
@@ -24,11 +24,7 @@ export function registerTradingTools(server: McpServer): void {
       payment: PaymentParam,
     },
     async ({ exchange, symbol, type, side, amount, price, payment }) => {
-      const paymentError = await checkPayment('place_order', payment);
-      if (paymentError) {
-        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
-      }
-
+      return executeWithPayment('place_order', payment, async () => {
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -54,6 +50,7 @@ export function registerTradingTools(server: McpServer): void {
           },
         ],
       };
+      });
     }
   );
 
@@ -67,11 +64,7 @@ export function registerTradingTools(server: McpServer): void {
       payment: PaymentParam,
     },
     async ({ exchange, symbol, orderId, payment }) => {
-      const paymentError = await checkPayment('cancel_order', payment);
-      if (paymentError) {
-        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
-      }
-
+      return executeWithPayment('cancel_order', payment, async () => {
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -95,6 +88,7 @@ export function registerTradingTools(server: McpServer): void {
           },
         ],
       };
+      });
     }
   );
 
@@ -107,11 +101,7 @@ export function registerTradingTools(server: McpServer): void {
       payment: PaymentParam,
     },
     async ({ exchange, symbol, payment }) => {
-      const paymentError = await checkPayment('cancel_all_orders', payment);
-      if (paymentError) {
-        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
-      }
-
+      return executeWithPayment('cancel_all_orders', payment, async () => {
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -134,6 +124,7 @@ export function registerTradingTools(server: McpServer): void {
           },
         ],
       };
+      });
     }
   );
 }

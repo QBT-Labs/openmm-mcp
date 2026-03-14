@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerTools } from './tools/index.js';
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
+import { setupX402 } from './x402-setup.js';
 
 const SERVER_NAME = 'openmm-mcp-agent';
 const SERVER_VERSION = '0.1.0';
@@ -60,6 +62,8 @@ async function startHttpServer(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await setupX402();
+
   if (process.env.MCP_TRANSPORT === 'http') {
     await startHttpServer();
   } else {

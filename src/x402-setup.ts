@@ -77,3 +77,45 @@ export async function checkPayment(
   const mod = await loadX402();
   return mod?.checkPayment(toolName, paymentSignature) ?? null;
 }
+
+type ToolResult = { content: Array<{ type: 'text'; text: string }> };
+
+/**
+ * Execute a tool with x402 payment: check → execute → settle → return result with txHash
+ */
+export async function executeWithPayment(
+  toolName: string,
+  payment: string | undefined,
+  execute: () => Promise<ToolResult>
+): Promise<ToolResult> {
+  const paymentError = await checkPayment(toolName, payment);
+  if (paymentError) {
+    return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+  }
+
+  const result = await execute();
+
+  if (isEnabled() && payment) {
+    const mod = await loadX402();
+    if (mod) {
+      const parsed = mod.parsePaymentHeader(payment);
+      if (parsed) {
+        try {
+          const settlement = await mod.settleWithFacilitator(parsed, toolName);
+          const originalData = JSON.parse(result.content[0].text);
+          originalData.payment = settlement.success
+            ? { settled: true, txHash: settlement.txHash }
+            : { settled: false, error: settlement.error };
+          result.content[0] = {
+            type: 'text' as const,
+            text: JSON.stringify(originalData, null, 2),
+          };
+        } catch (err) {
+          console.error(`[x402] Settlement error for ${toolName}:`, err);
+        }
+      }
+    }
+  }
+
+  return result;
+}
