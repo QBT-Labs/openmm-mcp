@@ -2,6 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ExchangeParam, SymbolParam, validateSymbol } from '../utils/index.js';
 import { validateExchange, getConnectorSafe } from '../exchange/exchange-manager.js';
+import { checkPayment } from '../x402-setup.js';
+
+const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
 
 interface GridLevel {
   price: number;
@@ -84,6 +87,7 @@ export function registerStrategyTools(server: McpServer): void {
         .boolean()
         .default(true)
         .describe('Preview grid without placing orders (default: true)'),
+      payment: PaymentParam,
     },
     async ({
       exchange,
@@ -95,7 +99,13 @@ export function registerStrategyTools(server: McpServer): void {
       spacingFactor,
       sizeModel,
       dryRun,
+      payment,
     }) => {
+      const paymentError = await checkPayment('setup_grid', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -169,8 +179,14 @@ export function registerStrategyTools(server: McpServer): void {
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol }) => {
+    async ({ exchange, symbol, payment }) => {
+      const paymentError = await checkPayment('cancel_grid', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -206,8 +222,14 @@ export function registerStrategyTools(server: McpServer): void {
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol }) => {
+    async ({ exchange, symbol, payment }) => {
+      const paymentError = await checkPayment('get_ticker', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 

@@ -2,6 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ExchangeParam, SymbolParam, validateSymbol } from '../utils/index.js';
 import { validateExchange, getConnectorSafe } from '../exchange/exchange-manager.js';
+import { checkPayment } from '../x402-setup.js';
+
+const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
 
 export function registerTradingTools(server: McpServer): void {
   server.tool(
@@ -18,8 +21,14 @@ export function registerTradingTools(server: McpServer): void {
         .positive()
         .optional()
         .describe('Order price (required for limit orders, ignored for market orders)'),
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol, type, side, amount, price }) => {
+    async ({ exchange, symbol, type, side, amount, price, payment }) => {
+      const paymentError = await checkPayment('place_order', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -55,8 +64,14 @@ export function registerTradingTools(server: McpServer): void {
       exchange: ExchangeParam,
       symbol: SymbolParam,
       orderId: z.string().describe('The order ID to cancel'),
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol, orderId }) => {
+    async ({ exchange, symbol, orderId, payment }) => {
+      const paymentError = await checkPayment('cancel_order', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 
@@ -89,8 +104,14 @@ export function registerTradingTools(server: McpServer): void {
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol }) => {
+    async ({ exchange, symbol, payment }) => {
+      const paymentError = await checkPayment('cancel_all_orders', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
 

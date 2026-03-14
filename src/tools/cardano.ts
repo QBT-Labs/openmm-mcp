@@ -1,5 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { checkPayment } from '../x402-setup.js';
+
+const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
 
 const SUPPORTED_TOKENS: Record<
   string,
@@ -117,8 +120,14 @@ export function registerCardanoTools(server: McpServer): void {
     'Get aggregated price for a Cardano native token from DEX liquidity pools (TOKEN/USDT via ADA bridge)',
     {
       symbol: z.string().describe('Cardano token symbol (INDY, SNEK, MIN, NIGHT)'),
+      payment: PaymentParam,
     },
-    async ({ symbol }) => {
+    async ({ symbol, payment }) => {
+      const paymentError = await checkPayment('cardano_price', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const upper = symbol.toUpperCase();
       const token = SUPPORTED_TOKENS[upper];
       if (!token) {
@@ -199,8 +208,14 @@ export function registerCardanoTools(server: McpServer): void {
     'Discover Cardano DEX liquidity pools for a native token via Iris API',
     {
       symbol: z.string().describe('Cardano token symbol (INDY, SNEK, MIN, NIGHT)'),
+      payment: PaymentParam,
     },
-    async ({ symbol }) => {
+    async ({ symbol, payment }) => {
+      const paymentError = await checkPayment('discover_pools', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const upper = symbol.toUpperCase();
       const token = SUPPORTED_TOKENS[upper];
       if (!token) {

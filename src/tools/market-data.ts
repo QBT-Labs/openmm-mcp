@@ -2,25 +2,32 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ExchangeParam, SymbolParam, LimitParam, validateSymbol } from '../utils/index.js';
 import { validateExchange, getConnectorSafe } from '../exchange/exchange-manager.js';
+import { checkPayment } from '../x402-setup.js';
 
-// Timeframe parameter for OHLCV
 const TimeframeParam = z
   .enum(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'])
   .default('1h')
   .describe('Candlestick timeframe (1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w)');
 
+const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
+
 export function registerMarketDataTools(server: McpServer): void {
   server.tool(
     'get_ticker',
-    'Get real-time price, bid/ask, spread, and volume for a trading pair on a supported exchange',
+    'Get real-time price, bid/ask, spread, and volume for a trading pair',
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol }) => {
+    async ({ exchange, symbol, payment }) => {
+      const paymentError = await checkPayment('get_ticker', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
-
       const connector = await getConnectorSafe(exchange);
       const ticker = await connector.getTicker(validSymbol);
 
@@ -52,22 +59,26 @@ export function registerMarketDataTools(server: McpServer): void {
 
   server.tool(
     'get_orderbook',
-    'Fetch order book depth (bids and asks) for a trading pair on a supported exchange',
+    'Fetch order book depth (bids and asks) for a trading pair',
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
       limit: LimitParam(10, 100),
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol, limit }) => {
+    async ({ exchange, symbol, limit, payment }) => {
+      const paymentError = await checkPayment('get_orderbook', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
-
       const connector = await getConnectorSafe(exchange);
       const orderbook = await connector.getOrderBook(validSymbol);
 
       const bids = orderbook.bids.slice(0, limit);
       const asks = orderbook.asks.slice(0, limit);
-
       const spread =
         orderbook.asks.length > 0 && orderbook.bids.length > 0
           ? orderbook.asks[0].price - orderbook.bids[0].price
@@ -104,19 +115,23 @@ export function registerMarketDataTools(server: McpServer): void {
 
   server.tool(
     'get_trades',
-    'Get recent trades for a trading pair on a supported exchange',
+    'Get recent trades for a trading pair',
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
       limit: LimitParam(20, 100),
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol, limit }) => {
+    async ({ exchange, symbol, limit, payment }) => {
+      const paymentError = await checkPayment('get_trades', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
-
       const connector = await getConnectorSafe(exchange);
       const trades = await connector.getRecentTrades(validSymbol);
-
       const limitedTrades = trades.slice(0, limit);
 
       const buyTrades = limitedTrades.filter((t) => t.side === 'buy');
@@ -150,20 +165,24 @@ export function registerMarketDataTools(server: McpServer): void {
 
   server.tool(
     'get_ohlcv',
-    'Get OHLCV (candlestick) data for a trading pair. Returns open, high, low, close, volume for each period.',
+    'Get OHLCV (candlestick) data for a trading pair',
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
       timeframe: TimeframeParam,
       limit: LimitParam(100, 500),
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol, timeframe, limit }) => {
+    async ({ exchange, symbol, timeframe, limit, payment }) => {
+      const paymentError = await checkPayment('get_ohlcv', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
+
       const validExchange = validateExchange(exchange);
       const validSymbol = validateSymbol(symbol);
-
       const connector = await getConnectorSafe(exchange);
 
-      // Cast via unknown since getOHLCV exists on concrete connectors but not base type
       type OHLCVConnector = {
         getOHLCV?: (
           symbol: string,
@@ -194,8 +213,6 @@ export function registerMarketDataTools(server: McpServer): void {
       }
 
       const ohlcv = await connectorWithOHLCV.getOHLCV(validSymbol, timeframe, limit);
-
-      // Calculate some useful stats
       const high = Math.max(...ohlcv.map((c) => c.high));
       const low = Math.min(...ohlcv.map((c) => c.low));
       const volumes = ohlcv.map((c) => c.volume);

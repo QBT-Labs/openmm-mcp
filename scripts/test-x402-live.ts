@@ -26,9 +26,8 @@ async function loadX402() {
 }
 
 async function startHttpServer(port: number): Promise<void> {
-  const { StreamableHTTPServerTransport } = await import(
-    '@modelcontextprotocol/sdk/server/streamableHttp.js'
-  );
+  const { StreamableHTTPServerTransport } =
+    await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
   const server = createServer();
   const transport = new StreamableHTTPServerTransport({
@@ -95,10 +94,7 @@ async function main() {
 
   // Import axios
   const axios = (await import('axios')).default;
-  const api = wrapAxiosWithPayment(
-    axios.create({ baseURL: `http://localhost:${port}` }),
-    client
-  );
+  const api = wrapAxiosWithPayment(axios.create({ baseURL: `http://localhost:${port}` }), client);
 
   // Start the MCP server
   console.log('');
@@ -123,15 +119,24 @@ async function main() {
   console.log('');
   console.log('Test 2: Call get_ticker tool');
   try {
-    const response = await axios.post(`http://localhost:${port}/mcp`, {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'tools/call',
-      params: {
-        name: 'get_ticker',
-        arguments: { exchange: 'mexc', symbol: 'BTC/USDT' },
+    const response = await axios.post(
+      `http://localhost:${port}/mcp`,
+      {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'get_ticker',
+          arguments: { exchange: 'mexc', symbol: 'BTC/USDT' },
+        },
       },
-    });
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+        },
+      }
+    );
 
     const result = response.data;
     if (result.result?.content?.[0]?.text) {

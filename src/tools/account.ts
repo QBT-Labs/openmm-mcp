@@ -2,6 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ExchangeParam, OptionalSymbolParam } from '../utils/index.js';
 import { validateExchange, getConnectorSafe } from '../exchange/exchange-manager.js';
+import { checkPayment } from '../x402-setup.js';
+
+const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
 
 export function registerAccountTools(server: McpServer): void {
   server.tool(
@@ -13,10 +16,15 @@ export function registerAccountTools(server: McpServer): void {
         .string()
         .optional()
         .describe('Optional asset to filter by (e.g., USDT, BTC). Returns all assets if omitted.'),
+      payment: PaymentParam,
     },
-    async ({ exchange, asset }) => {
-      const validExchange = validateExchange(exchange);
+    async ({ exchange, asset, payment }) => {
+      const paymentError = await checkPayment('get_balance', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
 
+      const validExchange = validateExchange(exchange);
       const connector = await getConnectorSafe(exchange);
       const balances = await connector.getBalance();
 
@@ -69,10 +77,15 @@ export function registerAccountTools(server: McpServer): void {
     {
       exchange: ExchangeParam,
       symbol: OptionalSymbolParam,
+      payment: PaymentParam,
     },
-    async ({ exchange, symbol }) => {
-      const validExchange = validateExchange(exchange);
+    async ({ exchange, symbol, payment }) => {
+      const paymentError = await checkPayment('list_open_orders', payment);
+      if (paymentError) {
+        return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
+      }
 
+      const validExchange = validateExchange(exchange);
       const connector = await getConnectorSafe(exchange);
       const orders = await connector.getOpenOrders(symbol);
 
