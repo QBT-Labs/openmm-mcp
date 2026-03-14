@@ -5,17 +5,18 @@ import { registerTools } from './tools/index.js';
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
 import { setupX402 } from './x402-setup.js';
+import type { X402Wrappers } from './x402-setup.js';
 
 const SERVER_NAME = 'openmm-mcp-agent';
 const SERVER_VERSION = '0.1.0';
 
-export function createServer(): McpServer {
+export function createServer(wrappers?: X402Wrappers | null): McpServer {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
   });
 
-  registerTools(server);
+  registerTools(server, wrappers ?? null);
   registerResources(server);
   registerPrompts(server);
 
@@ -24,16 +25,16 @@ export function createServer(): McpServer {
 
 // Smithery uses this to scan tools/resources without real credentials.
 export function createSandboxServer(): McpServer {
-  return createServer();
+  return createServer(null);
 }
 
-async function startHttpServer(): Promise<void> {
+async function startHttpServer(wrappers: X402Wrappers | null): Promise<void> {
   const { createServer: createHttpServer } = await import('node:http');
   const { randomUUID } = await import('node:crypto');
   const { StreamableHTTPServerTransport } =
     await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
-  const server = createServer();
+  const server = createServer(wrappers);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
@@ -62,12 +63,12 @@ async function startHttpServer(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await setupX402();
+  const wrappers = await setupX402();
 
   if (process.env.MCP_TRANSPORT === 'http') {
-    await startHttpServer();
+    await startHttpServer(wrappers);
   } else {
-    const server = createServer();
+    const server = createServer(wrappers);
     const transport = new StdioServerTransport();
     await server.connect(transport);
   }
