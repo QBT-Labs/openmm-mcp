@@ -2,9 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ExchangeParam, SymbolParam, validateSymbol } from '../utils/index.js';
 import { validateExchange, getConnectorSafe } from '../exchange/exchange-manager.js';
-import { executeWithPayment } from '../x402-setup.js';
-
-const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
+import type { X402Wrappers } from '../x402-setup.js';
 
 interface GridLevel {
   price: number;
@@ -57,7 +55,12 @@ function calculateGridLevels(
   return grid;
 }
 
-export function registerStrategyTools(server: McpServer): void {
+const identity = (fn: any) => fn;
+
+export function registerStrategyTools(server: McpServer, wrappers: X402Wrappers | null): void {
+  const wrapWrite = wrappers?.paidWrite ?? identity;
+  const wrapRead = wrappers?.paidRead ?? identity;
+
   server.tool(
     'start_grid_strategy',
     'Calculate and optionally place grid trading orders around the current price',
@@ -87,40 +90,37 @@ export function registerStrategyTools(server: McpServer): void {
         .boolean()
         .default(true)
         .describe('Preview grid without placing orders (default: true)'),
-      payment: PaymentParam,
     },
-    async ({
-      exchange,
-      symbol,
-      levels,
-      spacing,
-      orderSize,
-      spacingModel,
-      spacingFactor,
-      sizeModel,
-      dryRun,
-      payment,
+    wrapWrite(async (args: {
+      exchange: string;
+      symbol: string;
+      levels: number;
+      spacing: number;
+      orderSize: number;
+      spacingModel: 'linear' | 'geometric';
+      spacingFactor: number;
+      sizeModel: 'flat' | 'pyramidal';
+      dryRun: boolean;
     }) => {
-      return executeWithPayment('setup_grid', payment, async () => {
-      const validExchange = validateExchange(exchange);
-      const validSymbol = validateSymbol(symbol);
+      const validExchange = validateExchange(args.exchange);
+      const validSymbol = validateSymbol(args.symbol);
 
-      const connector = await getConnectorSafe(exchange);
+      const connector = await getConnectorSafe(args.exchange);
       const ticker = await connector.getTicker(validSymbol);
       const centerPrice = ticker.last;
 
       const grid = calculateGridLevels(
         centerPrice,
-        levels,
-        spacing,
-        spacingModel,
-        spacingFactor,
-        orderSize,
-        sizeModel
+        args.levels,
+        args.spacing,
+        args.spacingModel,
+        args.spacingFactor,
+        args.orderSize,
+        args.sizeModel
       );
 
       const placedOrders: any[] = [];
-      if (!dryRun) {
+      if (!args.dryRun) {
         for (const level of grid) {
           const order = await connector.createOrder(
             validSymbol,
@@ -139,9 +139,16 @@ export function registerStrategyTools(server: McpServer): void {
             type: 'text' as const,
             text: JSON.stringify(
               {
-                status: dryRun ? 'preview' : 'active',
+                status: args.dryRun ? 'preview' : 'active',
                 centerPrice,
-                config: { levels, spacing, spacingModel, spacingFactor, orderSize, sizeModel },
+                config: {
+                  levels: args.levels,
+                  spacing: args.spacing,
+                  spacingModel: args.spacingModel,
+                  spacingFactor: args.spacingFactor,
+                  orderSize: args.orderSize,
+                  sizeModel: args.sizeModel,
+                },
                 grid: grid.map((l) => ({
                   side: l.side,
                   price: l.price,
@@ -155,7 +162,7 @@ export function registerStrategyTools(server: McpServer): void {
                 totalSellValue: grid
                   .filter((l) => l.side === 'sell')
                   .reduce((s, l) => s + l.price * l.orderSize, 0),
-                ...(dryRun ? {} : { placedOrders }),
+                ...(args.dryRun ? {} : { placedOrders }),
                 exchange: validExchange,
                 symbol: validSymbol,
                 timestamp: new Date().toISOString(),
@@ -166,8 +173,7 @@ export function registerStrategyTools(server: McpServer): void {
           },
         ],
       };
-      });
-    }
+    })
   );
 
   server.tool(
@@ -176,14 +182,12 @@ export function registerStrategyTools(server: McpServer): void {
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
-      payment: PaymentParam,
     },
-    async ({ exchange, symbol, payment }) => {
-      return executeWithPayment('cancel_grid', payment, async () => {
-      const validExchange = validateExchange(exchange);
-      const validSymbol = validateSymbol(symbol);
+    wrapWrite(async (args: { exchange: string; symbol: string }) => {
+      const validExchange = validateExchange(args.exchange);
+      const validSymbol = validateSymbol(args.symbol);
 
-      const connector = await getConnectorSafe(exchange);
+      const connector = await getConnectorSafe(args.exchange);
       const openOrders = await connector.getOpenOrders(validSymbol);
       const result = await connector.cancelAllOrders(validSymbol);
 
@@ -206,8 +210,7 @@ export function registerStrategyTools(server: McpServer): void {
           },
         ],
       };
-      });
-    }
+    })
   );
 
   server.tool(
@@ -216,14 +219,12 @@ export function registerStrategyTools(server: McpServer): void {
     {
       exchange: ExchangeParam,
       symbol: SymbolParam,
-      payment: PaymentParam,
     },
-    async ({ exchange, symbol, payment }) => {
-      return executeWithPayment('get_ticker', payment, async () => {
-      const validExchange = validateExchange(exchange);
-      const validSymbol = validateSymbol(symbol);
+    wrapRead(async (args: { exchange: string; symbol: string }) => {
+      const validExchange = validateExchange(args.exchange);
+      const validSymbol = validateSymbol(args.symbol);
 
-      const connector = await getConnectorSafe(exchange);
+      const connector = await getConnectorSafe(args.exchange);
       const [ticker, openOrders] = await Promise.all([
         connector.getTicker(validSymbol),
         connector.getOpenOrders(validSymbol),
@@ -269,7 +270,6 @@ export function registerStrategyTools(server: McpServer): void {
           },
         ],
       };
-      });
-    }
+    })
   );
 }

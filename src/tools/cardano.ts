@@ -1,8 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { executeWithPayment } from '../x402-setup.js';
-
-const PaymentParam = z.string().optional().describe('x402 payment signature (base64)');
+import type { X402Wrappers } from '../x402-setup.js';
 
 const SUPPORTED_TOKENS: Record<
   string,
@@ -114,21 +112,23 @@ function matchesToken(pool: any, policyId: string): boolean {
   return tokenA?.policyId === policyId || tokenB?.policyId === policyId;
 }
 
-export function registerCardanoTools(server: McpServer): void {
+const identity = (fn: any) => fn;
+
+export function registerCardanoTools(server: McpServer, wrappers: X402Wrappers | null): void {
+  const wrap = wrappers?.paidRead ?? identity;
+
   server.tool(
     'get_cardano_price',
     'Get aggregated price for a Cardano native token from DEX liquidity pools (TOKEN/USDT via ADA bridge)',
     {
       symbol: z.string().describe('Cardano token symbol (INDY, SNEK, MIN, NIGHT)'),
-      payment: PaymentParam,
     },
-    async ({ symbol, payment }) => {
-      return executeWithPayment('cardano_price', payment, async () => {
-      const upper = symbol.toUpperCase();
+    wrap(async (args: { symbol: string }) => {
+      const upper = args.symbol.toUpperCase();
       const token = SUPPORTED_TOKENS[upper];
       if (!token) {
         throw new Error(
-          `Unsupported token: ${symbol}. Supported: ${Object.keys(SUPPORTED_TOKENS).join(', ')}`
+          `Unsupported token: ${args.symbol}. Supported: ${Object.keys(SUPPORTED_TOKENS).join(', ')}`
         );
       }
 
@@ -196,8 +196,7 @@ export function registerCardanoTools(server: McpServer): void {
           },
         ],
       };
-      });
-    }
+    })
   );
 
   server.tool(
@@ -205,15 +204,13 @@ export function registerCardanoTools(server: McpServer): void {
     'Discover Cardano DEX liquidity pools for a native token via Iris API',
     {
       symbol: z.string().describe('Cardano token symbol (INDY, SNEK, MIN, NIGHT)'),
-      payment: PaymentParam,
     },
-    async ({ symbol, payment }) => {
-      return executeWithPayment('discover_pools', payment, async () => {
-      const upper = symbol.toUpperCase();
+    wrap(async (args: { symbol: string }) => {
+      const upper = args.symbol.toUpperCase();
       const token = SUPPORTED_TOKENS[upper];
       if (!token) {
         throw new Error(
-          `Unsupported token: ${symbol}. Supported: ${Object.keys(SUPPORTED_TOKENS).join(', ')}`
+          `Unsupported token: ${args.symbol}. Supported: ${Object.keys(SUPPORTED_TOKENS).join(', ')}`
         );
       }
 
@@ -247,7 +244,6 @@ export function registerCardanoTools(server: McpServer): void {
           },
         ],
       };
-      });
-    }
+    })
   );
 }

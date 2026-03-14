@@ -1,121 +1,102 @@
 /**
  * x402 Setup for OpenMM MCP
  *
- * Configures payment protocol using @qbtlabs/x402
+ * Uses the official @x402/mcp, @x402/core, and @x402/evm packages
+ * to integrate payment-gated tools via the Coinbase x402 protocol.
  */
 
-type X402Module = typeof import('@qbtlabs/x402');
-let x402Module: X402Module | null = null;
-let x402Loaded = false;
+import { createPaymentWrapper, x402ResourceServer } from '@x402/mcp';
+import { HTTPFacilitatorClient } from '@x402/core/server';
+import { ExactEvmScheme } from '@x402/evm/exact/server';
 
-async function loadX402(): Promise<X402Module | null> {
-  if (x402Loaded) return x402Module;
-  x402Loaded = true;
+export type PaymentWrapper = ReturnType<typeof createPaymentWrapper>;
 
-  try {
-    x402Module = await import('@qbtlabs/x402');
-    return x402Module;
-  } catch {
-    console.error('[x402] @qbtlabs/x402 not installed - payment features disabled');
+export interface X402Wrappers {
+  paidRead: PaymentWrapper;
+  paidAnalysis: PaymentWrapper;
+  paidWrite: PaymentWrapper;
+}
+
+const TOOL_TIERS: Record<string, 'free' | 'read' | 'analysis' | 'write'> = {
+  list_exchanges: 'free',
+  get_ticker: 'read',
+  get_orderbook: 'read',
+  get_trades: 'read',
+  get_ohlcv: 'read',
+  get_balance: 'read',
+  list_open_orders: 'read',
+  get_cardano_price: 'read',
+  discover_pools: 'read',
+  get_strategy_status: 'read',
+  get_portfolio: 'analysis',
+  compare_prices: 'analysis',
+  create_order: 'write',
+  cancel_order: 'write',
+  cancel_all_orders: 'write',
+  start_grid_strategy: 'write',
+  stop_strategy: 'write',
+};
+
+let x402Enabled = false;
+
+export function isX402Enabled(): boolean {
+  return x402Enabled;
+}
+
+export function getToolTier(toolName: string): 'free' | 'read' | 'analysis' | 'write' {
+  return TOOL_TIERS[toolName] ?? 'read';
+}
+
+/**
+ * Initialize x402 payment protocol using the official SDK.
+ * Returns payment wrappers for each tier, or null if x402 is not configured.
+ */
+export async function setupX402(): Promise<X402Wrappers | null> {
+  const evmAddress = process.env.X402_EVM_ADDRESS as `0x${string}` | undefined;
+  if (!evmAddress) {
+    console.error('[x402] X402_EVM_ADDRESS not set - payment features disabled');
     return null;
   }
-}
 
-/**
- * Initialize x402 with OpenMM tool pricing
- */
-export async function setupX402(): Promise<void> {
-  const mod = await loadX402();
-  if (!mod) return;
+  const testnet = process.env.X402_TESTNET === 'true';
+  const network = testnet ? 'eip155:84532' : 'eip155:8453';
+  const facilitatorUrl = process.env.X402_FACILITATOR_URL ?? 'https://x402.org/facilitator';
 
-  const { configure, setToolPrices, isEnabled } = mod;
+  try {
+    const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
+    const resourceServer = new x402ResourceServer(facilitatorClient);
+    resourceServer.register(network, new ExactEvmScheme());
+    await resourceServer.initialize();
 
-  configure({
-    evm: process.env.X402_EVM_ADDRESS ? { address: process.env.X402_EVM_ADDRESS } : undefined,
-    solana: process.env.X402_SOLANA_ADDRESS
-      ? { address: process.env.X402_SOLANA_ADDRESS }
-      : undefined,
-    testnet: process.env.X402_TESTNET === 'true',
-    verifyMode: (process.env.X402_VERIFY_MODE as 'basic' | 'full') ?? 'basic',
-  });
+    const buildAccepts = async (price: string) =>
+      resourceServer.buildPaymentRequirements({
+        scheme: 'exact',
+        network,
+        payTo: evmAddress,
+        price,
+        extra: { name: 'USDC', version: '2' },
+      });
 
-  setToolPrices({
-    list_exchanges: 'free',
-    get_ticker: 'read',
-    get_orderbook: 'read',
-    get_trades: 'read',
-    get_ohlcv: 'read',
-    get_balance: 'read',
-    list_open_orders: 'read',
-    cardano_price: 'read',
-    discover_pools: 'read',
-    get_portfolio: 'analysis',
-    compare_prices: 'analysis',
-    place_order: 'write',
-    cancel_order: 'write',
-    cancel_all_orders: 'write',
-    setup_grid: 'write',
-    cancel_grid: 'write',
-  });
+    const [readAccepts, analysisAccepts, writeAccepts] = await Promise.all([
+      buildAccepts('$0.001'),
+      buildAccepts('$0.005'),
+      buildAccepts('$0.01'),
+    ]);
 
-  if (isEnabled()) {
+    const paidRead = createPaymentWrapper(resourceServer, { accepts: readAccepts });
+    const paidAnalysis = createPaymentWrapper(resourceServer, { accepts: analysisAccepts });
+    const paidWrite = createPaymentWrapper(resourceServer, { accepts: writeAccepts });
+
+    x402Enabled = true;
     console.error('[x402] Payment protocol enabled');
-    console.error(`[x402] EVM: ${process.env.X402_EVM_ADDRESS ?? 'not set'}`);
-    console.error(`[x402] Solana: ${process.env.X402_SOLANA_ADDRESS ?? 'not set'}`);
-    console.error(`[x402] Testnet: ${process.env.X402_TESTNET ?? 'false'}`);
+    console.error(`[x402] EVM: ${evmAddress}`);
+    console.error(`[x402] Network: ${network}`);
+    console.error(`[x402] Facilitator: ${facilitatorUrl}`);
+    console.error(`[x402] Testnet: ${testnet}`);
+
+    return { paidRead, paidAnalysis, paidWrite };
+  } catch (err) {
+    console.error('[x402] Failed to initialize:', err);
+    return null;
   }
-}
-
-export function isEnabled(): boolean {
-  return x402Module?.isEnabled() ?? false;
-}
-
-export async function checkPayment(
-  toolName: string,
-  paymentSignature?: string
-): Promise<{ content: Array<{ type: string; text: string }> } | null> {
-  const mod = await loadX402();
-  return mod?.checkPayment(toolName, paymentSignature) ?? null;
-}
-
-type ToolResult = { content: Array<{ type: 'text'; text: string }> };
-
-/**
- * Execute a tool with x402 payment: check → execute → settle → return result with txHash
- */
-export async function executeWithPayment(
-  toolName: string,
-  payment: string | undefined,
-  execute: () => Promise<ToolResult>
-): Promise<ToolResult> {
-  const paymentError = await checkPayment(toolName, payment);
-  if (paymentError) {
-    return { content: [{ type: 'text' as const, text: paymentError.content[0].text }] };
-  }
-
-  const result = await execute();
-
-  if (isEnabled() && payment) {
-    const mod = await loadX402();
-    if (mod) {
-      const parsed = mod.parsePaymentHeader(payment);
-      if (parsed) {
-        try {
-          const settlement = await mod.settleWithFacilitator(parsed, toolName);
-          const originalData = JSON.parse(result.content[0].text);
-          originalData.payment = settlement.success
-            ? { settled: true, txHash: settlement.txHash }
-            : { settled: false, error: settlement.error };
-          result.content[0] = {
-            type: 'text' as const,
-            text: JSON.stringify(originalData, null, 2),
-          };
-        } catch (err) {
-          console.error(`[x402] Settlement error for ${toolName}:`, err);
-        }
-      }
-    }
-  }
-
-  return result;
 }
