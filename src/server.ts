@@ -29,18 +29,62 @@ export function createSandboxServer(): McpServer {
 
 async function startHttpServer(): Promise<void> {
   const { createServer: createHttpServer } = await import('node:http');
+  const { StreamableHTTPServerTransport } =
+    await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
   const server = createServer();
   const port = parseInt(process.env.PORT || '3000', 10);
-  const evmAddress = process.env.X402_EVM_ADDRESS;
 
-  if (isX402Enabled() && evmAddress) {
-    // Use Civic's payment-aware transport — handles 402, verification, settlement at HTTP level
-    const { makePaymentAwareServerTransport } = await import('@civic/x402-mcp');
-    const facilitatorUrl = process.env.X402_FACILITATOR_URL ?? 'https://x402.org/facilitator';
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => crypto.randomUUID(),
+  });
+  await server.connect(transport);
 
-    // Per-session transport map for multi-client support
-    const sessions = new Map<string, { transport: ReturnType<typeof makePaymentAwareServerTransport>; server: McpServer }>();
+  if (isX402Enabled()) {
+    // Configure @qbtlabs/x402 payment protocol
+    const { configure, setToolPrices } = await import('@qbtlabs/x402');
+    const { withX402Server } = await import('@qbtlabs/x402/transport');
+
+    configure({
+      evm: { address: process.env.X402_EVM_ADDRESS! },
+      testnet: process.env.X402_TESTNET === 'true',
+    });
+    setToolPrices(TOOL_PRICING);
+
+    // Create the payment-gated handler.
+    // withX402Server intercepts tool calls, returns 402 for paid tools,
+    // verifies X-PAYMENT headers, and settles via the facilitator.
+    // It passes non-paid and already-paid requests through to the transport.
+    const paymentGatedHandler = withX402Server({
+      handler: async (req: Request) => {
+        const body = await req.text();
+        const parsedBody = body ? JSON.parse(body) : undefined;
+
+        const { PassThrough } = await import('node:stream');
+        const { ServerResponse, IncomingMessage } = await import('node:http');
+        const fakeSocket = new PassThrough();
+        const fakeReq = new IncomingMessage(fakeSocket as any);
+        fakeReq.method = req.method;
+        fakeReq.url = '/mcp';
+        fakeReq.headers = Object.fromEntries(req.headers.entries());
+        const fakeRes = new ServerResponse(fakeReq);
+
+        const responseChunks: Buffer[] = [];
+        fakeRes.write = ((chunk: any) => { responseChunks.push(Buffer.from(chunk)); return true; }) as any;
+        let resolveEnd: () => void;
+        const endPromise = new Promise<void>(r => { resolveEnd = r; });
+        const originalEnd = fakeRes.end.bind(fakeRes);
+        fakeRes.end = ((...args: any[]) => { if (args[0]) responseChunks.push(Buffer.from(args[0])); resolveEnd(); return originalEnd(); }) as any;
+
+        await transport.handleRequest(fakeReq, fakeRes, parsedBody);
+        await endPromise;
+
+        return new Response(Buffer.concat(responseChunks), {
+          status: fakeRes.statusCode,
+          headers: fakeRes.getHeaders() as Record<string, string>,
+        });
+      },
+    });
 
     const httpServer = createHttpServer(async (req, res) => {
       if (req.url === '/health' && req.method === 'GET') {
@@ -50,49 +94,29 @@ async function startHttpServer(): Promise<void> {
       }
 
       if (req.url === '/mcp') {
-        let body: any;
-        if (req.method === 'POST') {
-          const chunks: Buffer[] = [];
-          for await (const chunk of req) chunks.push(chunk as Buffer);
-          body = JSON.parse(Buffer.concat(chunks).toString());
+        // Convert Node.js IncomingMessage to Web Request for withX402Server
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(chunk as Buffer);
+        const body = Buffer.concat(chunks);
+
+        const headers: Record<string, string> = {};
+        for (const [key, value] of Object.entries(req.headers)) {
+          if (typeof value === 'string') headers[key] = value;
         }
 
-        // Check if this is a new initialize request (needs new session)
-        const isInit = body && !Array.isArray(body) && body.method === 'initialize';
-        const sessionId = req.headers['mcp-session-id'] as string | undefined;
+        const webRequest = new Request(`http://localhost:${port}${req.url}`, {
+          method: req.method,
+          headers,
+          body: req.method !== 'GET' ? body : undefined,
+        });
 
-        if (isInit || !sessionId) {
-          // New session: create fresh server + transport
-          const newSessionId = crypto.randomUUID();
-          const transport = makePaymentAwareServerTransport(evmAddress, TOOL_PRICING, {
-            facilitator: { url: facilitatorUrl as `${string}://${string}` },
-            sessionIdGenerator: () => newSessionId,
-          });
-          const newServer = createServer();
-          await newServer.connect(transport);
+        const webResponse = await paymentGatedHandler(webRequest);
 
-          // Store session BEFORE handling request so subsequent requests can find it
-          sessions.set(newSessionId, { transport, server: newServer });
-
-          if (body) {
-            await transport.handleRequest(req, res, body);
-          } else {
-            await transport.handleRequest(req, res);
-          }
-        } else {
-          // Existing session
-          const session = sessions.get(sessionId);
-          if (session) {
-            if (body) {
-              await session.transport.handleRequest(req, res, body);
-            } else {
-              await session.transport.handleRequest(req, res);
-            }
-          } else {
-            res.writeHead(400);
-            res.end('Unknown session');
-          }
-        }
+        const resHeaders: Record<string, string> = {};
+        webResponse.headers.forEach((v, k) => { resHeaders[k] = v; });
+        res.writeHead(webResponse.status, resHeaders);
+        const responseBody = await webResponse.arrayBuffer();
+        res.end(Buffer.from(responseBody));
         return;
       }
 
@@ -102,21 +126,12 @@ async function startHttpServer(): Promise<void> {
 
     httpServer.listen(port, () => {
       process.stderr.write(`OpenMM MCP HTTP server (x402 enabled) listening on port ${port}\n`);
-      process.stderr.write(`[x402] EVM: ${evmAddress}\n`);
-      process.stderr.write(`[x402] Facilitator: ${facilitatorUrl}\n`);
+      process.stderr.write(`[x402] EVM: ${process.env.X402_EVM_ADDRESS}\n`);
+      process.stderr.write(`[x402] Testnet: ${process.env.X402_TESTNET ?? 'false'}\n`);
       process.stderr.write(`[x402] Paid tools: ${Object.keys(TOOL_PRICING).length}\n`);
     });
   } else {
     // Standard HTTP transport without payment
-    const { StreamableHTTPServerTransport } =
-      await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
-    const { randomUUID } = await import('node:crypto');
-
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-    });
-    await server.connect(transport);
-
     const httpServer = createHttpServer(async (req, res) => {
       if (req.url === '/health' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
