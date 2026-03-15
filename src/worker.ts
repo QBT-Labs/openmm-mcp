@@ -21,7 +21,7 @@ export default {
         version: '1.0.4',
         description:
           'MCP server for OpenMM — exposes market data, account, trading, and strategy tools to AI agents',
-        url: 'https://openmm-mcp.qbtlabs.io/mcp',
+        url: 'https://mcp.openmm.io/mcp',
         transport: { type: 'streamable-http' },
         capabilities: {
           tools: [
@@ -61,16 +61,34 @@ export default {
         throw new Error(`process.exit(${code}) called`);
       }) as never;
 
+      const { configure, setToolPrices } = await import('@qbtlabs/x402');
+      const { withX402Server } = await import('@qbtlabs/x402/transport');
+      const { TOOL_PRICING } = await import('./x402-setup.js');
       const { createServer } = await import('./server.js');
       const { WebStandardStreamableHTTPServerTransport } =
         await import('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js');
+
+      // Configure x402 payment protocol
+      if (env.X402_EVM_ADDRESS) {
+        configure({
+          evm: { address: env.X402_EVM_ADDRESS },
+          testnet: env.X402_TESTNET === 'true',
+        });
+        setToolPrices(TOOL_PRICING);
+      }
 
       const server = createServer();
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
       });
       await server.connect(transport);
-      return transport.handleRequest(request);
+
+      // Wrap the transport handler with x402 payment middleware
+      const paymentGatedHandler = withX402Server({
+        handler: (req: Request) => transport.handleRequest(req),
+      });
+
+      return paymentGatedHandler(request);
     }
 
     return new Response('Not found', { status: 404 });
