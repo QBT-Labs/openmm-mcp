@@ -47,23 +47,19 @@ export default {
     }
 
     if (url.pathname === '/mcp') {
-      // Copy Worker env bindings into process.env so the openmm SDK
-      // (which reads process.env at import time) can find them.
       for (const [key, value] of Object.entries(env)) {
         if (typeof value === 'string') {
           process.env[key] = value;
         }
       }
 
-      // The openmm SDK calls process.exit(1) on validation errors.
-      // In Workers this is fatal, so convert it to a thrown error.
       process.exit = ((code?: number) => {
         throw new Error(`process.exit(${code}) called`);
       }) as never;
 
       const { configure, setToolPrices } = await import('@qbtlabs/x402');
       const { withX402Server } = await import('@qbtlabs/x402/transport');
-      const { TOOL_PRICING } = await import('./x402-setup.js');
+      const { TOOL_PRICING } = await import('./payment/index.js');
       const { createServer } = await import('./server.js');
       const { WebStandardStreamableHTTPServerTransport } =
         await import('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js');
@@ -74,7 +70,7 @@ export default {
           evm: { address: env.X402_EVM_ADDRESS },
           testnet: env.X402_TESTNET === 'true',
         });
-        setToolPrices(TOOL_PRICING);
+        setToolPrices(TOOL_PRICING as any);
       }
 
       const server = createServer();
