@@ -13,9 +13,9 @@ const config: Config = {
   ],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^@qbtlabs/x402/split$': '<rootDir>/node_modules/@qbtlabs/x402/src/split/index.ts',
-    '^@qbtlabs/x402/transport$': '<rootDir>/node_modules/@qbtlabs/x402/src/transport/index.ts',
-    '^@qbtlabs/x402$': '<rootDir>/node_modules/@qbtlabs/x402/src/index.ts',
+    '^@qbtlabs/x402/split$': '<rootDir>/src/tests/__mocks__/x402-split.ts',
+    '^@qbtlabs/x402/transport$': '<rootDir>/src/tests/__mocks__/x402-transport.ts',
+    '^@qbtlabs/x402$': '<rootDir>/src/tests/__mocks__/x402.ts',
   },
   transform: {
     '^.+\\.ts$': [
