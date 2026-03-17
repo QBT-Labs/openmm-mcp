@@ -66,11 +66,12 @@ export async function wrapServerWithPayment(server: McpServer): Promise<void> {
   const privateKey = process.env.WALLET_PRIVATE_KEY as `0x${string}`;
   if (!privateKey) return;
 
+  const workerUrl = process.env.PAYMENT_SERVER || 'https://mcp.openmm.io';
   const { wrapWithSplitPayment } = await import('@qbtlabs/x402/split');
 
   wrapWithSplitPayment(server as any, {
     privateKey,
-    workerUrl: process.env.PAYMENT_SERVER || 'https://mcp.openmm.io',
+    workerUrl,
     testnet: process.env.X402_TESTNET === 'true',
     freeTools: FREE_TOOLS,
   });
