@@ -1,19 +1,41 @@
-import 'dotenv/config';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerTools } from './tools/index.js';
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
-import { TOOL_PRICING, isX402Enabled } from './x402-setup.js';
+import {
+  TOOL_PRICING,
+  isX402Enabled,
+  initPaymentClient,
+  isPaymentClientEnabled,
+  wrapServerWithPayment,
+} from './payment/index.js';
 
 const SERVER_NAME = 'openmm-mcp-agent';
 const SERVER_VERSION = '0.1.0';
 
-export function createServer(): McpServer {
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  });
+/**
+ * Create an MCP server.
+ * When `enablePaymentGate` is true the payment wrapper intercepts
+ * private tool registrations so they go through the JWT flow.
+ */
+export async function createServer(enablePaymentGate = false): Promise<McpServer> {
+  const server = new McpServer(
+    {
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
+    },
+    {
+      capabilities: {
+        logging: {},
+      },
+    }
+  );
+
+  if (enablePaymentGate && isPaymentClientEnabled()) {
+    await wrapServerWithPayment(server);
+    console.error('[server] Payment gate enabled for private tools');
+  }
 
   registerTools(server);
   registerResources(server);
@@ -23,7 +45,7 @@ export function createServer(): McpServer {
 }
 
 // Smithery uses this to scan tools/resources without real credentials.
-export function createSandboxServer(): McpServer {
+export async function createSandboxServer(): Promise<McpServer> {
   return createServer();
 }
 
@@ -32,7 +54,7 @@ async function startHttpServer(): Promise<void> {
   const { StreamableHTTPServerTransport } =
     await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
-  const server = createServer();
+  const server = await createServer();
   const port = parseInt(process.env.PORT || '3000', 10);
 
   const transport = new StreamableHTTPServerTransport({
@@ -49,7 +71,7 @@ async function startHttpServer(): Promise<void> {
       evm: { address: process.env.X402_EVM_ADDRESS! },
       testnet: process.env.X402_TESTNET === 'true',
     });
-    setToolPrices(TOOL_PRICING);
+    setToolPrices(TOOL_PRICING as any);
 
     // Create the payment-gated handler.
     // withX402Server intercepts tool calls, returns 402 for paid tools,
@@ -169,8 +191,9 @@ async function main(): Promise<void> {
   if (process.env.MCP_TRANSPORT === 'http') {
     await startHttpServer();
   } else {
-    // Stdio transport — tools always free (no HTTP layer for payment)
-    const server = createServer();
+    // Stdio transport — init payment client for split execution.
+    initPaymentClient();
+    const server = await createServer(/* enablePaymentGate */ true);
     const transport = new StdioServerTransport();
     await server.connect(transport);
   }

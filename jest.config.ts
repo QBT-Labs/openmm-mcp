@@ -13,6 +13,9 @@ const config: Config = {
   ],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@qbtlabs/x402/split$': '<rootDir>/src/tests/__mocks__/x402-split.ts',
+    '^@qbtlabs/x402/transport$': '<rootDir>/src/tests/__mocks__/x402-transport.ts',
+    '^@qbtlabs/x402$': '<rootDir>/src/tests/__mocks__/x402.ts',
   },
   transform: {
     '^.+\\.ts$': [
@@ -28,7 +31,7 @@ const config: Config = {
   },
   // Transform ESM packages
   transformIgnorePatterns: [
-    'node_modules/(?!(@noble/hashes|@noble/curves)/)',
+    'node_modules/(?!(@noble/hashes|@noble/curves|@qbtlabs/x402)/)',
   ],
   extensionsToTreatAsEsm: ['.ts'],
 };

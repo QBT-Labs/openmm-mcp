@@ -8,6 +8,7 @@ jest.mock('@3rd-eye-labs/openmm', () => ({
     isSupported: jest.fn().mockReturnValue(true),
     getSupportedExchanges: jest.fn().mockReturnValue(['mexc', 'gateio', 'bitget', 'kraken']),
     getExchange: jest.fn(),
+    clearAllConnectors: jest.fn(),
   },
 }));
 
@@ -74,7 +75,7 @@ describe('Account MCP Tools', () => {
     ]);
     mockExchangeFactory.getExchange.mockResolvedValue(mockConnector as any);
 
-    const server = createServer();
+    const server = await createServer();
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
     client = new Client({ name: 'test-client', version: '1.0.0' });

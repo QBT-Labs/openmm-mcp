@@ -1,6 +1,6 @@
 {
   "name": "@qbtlabs/openmm-mcp",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "description": "MCP server for OpenMM — exposes market data, account, trading, and strategy tools to AI agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,11 +12,10 @@
     "build": "tsc --project tsconfig.build.json",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "test": "jest",
+    "test": "MCP_TRANSPORT= jest",
     "test:unit": "jest --testPathPattern=unit",
     "test:x402": "jest --testPathPattern=x402",
     "test:e2e": "TEST_E2E=true jest --testPathPattern=e2e",
-    "test:x402:live": "npx tsx scripts/test-x402-live.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
@@ -44,11 +43,11 @@
     "url": "https://github.com/QBT-Labs/openMM-MCP.git"
   },
   "dependencies": {
-    "@3rd-eye-labs/openmm": "0.1.0",
+    "@3rd-eye-labs/openmm": "^0.1.10",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
-    "@qbtlabs/x402": "^0.2.0",
+    "@qbtlabs/x402": "^0.3.3",
     "viem": "^2.47.4",
     "zod": "^4.3.6"
   },
