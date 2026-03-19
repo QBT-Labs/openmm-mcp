@@ -20,14 +20,17 @@ const SERVER_VERSION = '0.1.0';
  * private tool registrations so they go through the JWT flow.
  */
 export async function createServer(enablePaymentGate = false): Promise<McpServer> {
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  }, {
-    capabilities: {
-      logging: {},
+  const server = new McpServer(
+    {
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
     },
-  });
+    {
+      capabilities: {
+        logging: {},
+      },
+    }
+  );
 
   if (enablePaymentGate && isPaymentClientEnabled()) {
     await wrapServerWithPayment(server);
