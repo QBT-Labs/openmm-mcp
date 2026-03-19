@@ -86,7 +86,9 @@ Or edit `~/.claude.json`:
       "args": ["@qbtlabs/openmm-mcp"],
       "env": {
         "MEXC_API_KEY": "your_key",
-        "MEXC_SECRET": "your_secret"
+        "MEXC_SECRET_KEY": "your_secret",
+        "KRAKEN_API_KEY": "your_key",
+        "KRAKEN_SECRET": "your_secret"
       }
     }
   }
