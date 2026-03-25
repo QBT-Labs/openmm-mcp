@@ -133,58 +133,39 @@ export default {
         );
       }
 
-      // Verify and settle payment
-      const isTestnet = env.X402_TESTNET === 'true';
-      let txHash = 'testnet-verified';
-      
-      if (isTestnet) {
-        // Testnet: Basic local verification (facilitator has bugs with v2)
-        // Verify the payment structure and signature format
-        const evmPayload = payment.payload as { authorization?: { from?: string; value?: string }; signature?: string };
-        if (!evmPayload?.authorization?.from || !evmPayload?.signature) {
-          return new Response(
-            JSON.stringify({ error: 'Invalid payment structure' }),
-            { status: 403, headers: { 'Content-Type': 'application/json' } },
-          );
-        }
-        
-        // Check amount matches requirements
-        const pricing = getToolPrice(tool);
-        const requiredAmount = Math.ceil(pricing.price * 1_000_000);
-        const paidAmount = parseInt(evmPayload?.authorization?.value || '0');
-        
-        if (paidAmount < requiredAmount) {
-          return new Response(
-            JSON.stringify({ 
-              error: 'Insufficient payment',
-              required: requiredAmount,
-              paid: paidAmount 
-            }),
-            { status: 402, headers: { 'Content-Type': 'application/json' } },
-          );
-        }
-        
-        txHash = `testnet-${Date.now()}`;
-      } else {
-        // Production: Use facilitator for on-chain settlement
-        const verification = await verifyWithFacilitator(payment, tool);
-        if (!verification.valid) {
-          return new Response(
-            JSON.stringify({ error: 'Payment verification failed', reason: verification.error }),
-            { status: 403, headers: { 'Content-Type': 'application/json' } },
-          );
-        }
+      // Log payment received
+      console.log('[x402] Payment received:', JSON.stringify({
+        x402Version: payment.x402Version,
+        network: payment.accepted?.network,
+        amount: payment.accepted?.amount,
+        from: (payment.payload as any)?.authorization?.from,
+        to: payment.accepted?.payTo,
+        signaturePrefix: (payment.payload as any)?.signature?.slice(0, 20) + '...',
+      }));
 
-        const settlement = await settleWithFacilitator(payment, tool);
-        if (!settlement.success) {
-          return new Response(
-            JSON.stringify({ error: 'Payment settlement failed', reason: settlement.error }),
-            { status: 402, headers: { 'Content-Type': 'application/json' } },
-          );
-        }
-        
-        txHash = settlement.txHash || 'pending';
+      // Verify payment via facilitator
+      const verification = await verifyWithFacilitator(payment, tool);
+      if (!verification.valid) {
+        console.log('[x402] Verification failed:', verification.error);
+        return new Response(
+          JSON.stringify({ error: 'Payment verification failed', reason: verification.error }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } },
+        );
       }
+      console.log('[x402] Payment verified ✅');
+
+      // Settle payment via facilitator (on-chain)
+      const settlement = await settleWithFacilitator(payment, tool);
+      if (!settlement.success) {
+        console.log('[x402] Settlement failed:', settlement.error);
+        return new Response(
+          JSON.stringify({ error: 'Payment settlement failed', reason: settlement.error }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      
+      const txHash = settlement.txHash || 'pending';
+      console.log('[x402] Payment settled ✅ txHash:', txHash);
 
       // Issue JWT (simplified - in production use proper JWT signing)
       const jwt = await generateJWT({
@@ -196,7 +177,7 @@ export default {
       }, env);
 
       return new Response(
-        JSON.stringify({ jwt, txHash }),
+        (console.log('[x402] JWT issued ✅', { tool, exchange, txHash }), JSON.stringify({ jwt, txHash })),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     }
