@@ -111,13 +111,13 @@ async function wrapWithSignerMode(
   server: McpServer,
   options: { workerUrl: string; testnet: boolean }
 ): Promise<void> {
-  const { SignerClient } = await import('@qbtlabs/x402');
+  const { createSignerClient } = await import('@qbtlabs/x402');
   
   const signerSocket = process.env.X402_SIGNER_SOCKET || '/tmp/x402-signer.sock';
-  const client = new SignerClient({ socketPath: signerSocket });
+  const client = await createSignerClient({ socketPath: signerSocket });
   
   // Verify signer is available
-  if (!await client.isAvailable()) {
+  if (!client) {
     console.error('❌ x402 signer not available at', signerSocket);
     console.error('   Start with: npx tsx src/scripts/signer-cli.ts start');
     return;
