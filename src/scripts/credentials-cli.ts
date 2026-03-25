@@ -9,21 +9,41 @@
  *   node dist/scripts/credentials-cli.js status
  */
 
-import { createInterface } from 'readline';
+import { createInterface, Interface } from 'readline';
 import { existsSync } from 'fs';
+import { Writable } from 'stream';
 import { Vault } from '../vault/vault.js';
 import { CredentialsServer } from '../credentials/server.js';
 import { CredentialsClient } from '../credentials/client.js';
 import { DEFAULT_SOCKET_PATH } from '../credentials/types.js';
 
-const rl = createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+// Muted output stream for hidden input
+class MutedStream extends Writable {
+  muted = false;
+  _write(chunk: Buffer, _encoding: string, callback: () => void): void {
+    if (!this.muted) process.stdout.write(chunk);
+    callback();
+  }
+}
+
+const mutableStdout = new MutedStream();
+let rl: Interface;
+
+function getRl(): Interface {
+  if (!rl) {
+    rl = createInterface({
+      input: process.stdin,
+      output: mutableStdout,
+      terminal: true,
+    });
+  }
+  return rl;
+}
 
 function question(prompt: string): Promise<string> {
   return new Promise((resolve) => {
-    rl.question(prompt, (answer) => {
+    mutableStdout.muted = false;
+    getRl().question(prompt, (answer) => {
       resolve(answer);
     });
   });
@@ -31,7 +51,9 @@ function question(prompt: string): Promise<string> {
 
 function questionHidden(prompt: string): Promise<string> {
   return new Promise((resolve) => {
+    mutableStdout.muted = false;
     process.stdout.write(prompt);
+    mutableStdout.muted = true;
     
     const stdin = process.stdin;
     const wasRaw = stdin.isRaw;
@@ -45,6 +67,7 @@ function questionHidden(prompt: string): Promise<string> {
       if (c === '\n' || c === '\r') {
         stdin.removeListener('data', onData);
         stdin.setRawMode?.(wasRaw ?? false);
+        mutableStdout.muted = false;
         process.stdout.write('\n');
         resolve(password);
       } else if (c === '\u0003') {
@@ -93,7 +116,7 @@ async function startServer(): Promise<void> {
   
   // Get vault password
   const password = await questionHidden('Vault password: ');
-  rl.close();
+  getRl().close();
   
   if (!password) {
     console.error('❌ Password required');
@@ -181,7 +204,7 @@ async function main(): Promise<void> {
       
     case 'status':
       await checkStatus();
-      rl.close();
+      getRl().close();
       break;
       
     default:
@@ -189,13 +212,13 @@ async function main(): Promise<void> {
       console.log('Usage:');
       console.log('  credentials-cli start   Start the credentials server');
       console.log('  credentials-cli status  Check server status');
-      rl.close();
+      getRl().close();
       break;
   }
 }
 
 main().catch((error) => {
   console.error('Error:', error.message);
-  rl.close();
+  getRl().close();
   process.exit(1);
 });
