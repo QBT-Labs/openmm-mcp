@@ -39,7 +39,15 @@ openmm-init
 
 This creates an encrypted vault at `~/.openmm/vault.enc` containing your wallet key and exchange API credentials. You'll set a password, generate (or import) a wallet, and optionally add exchange keys.
 
-### 3. Start the server
+### 3. Configure your client
+
+```bash
+npx @qbtlabs/openmm-mcp --setup
+```
+
+Select which MCP clients to configure. The wizard automatically writes the correct config to each client's config file.
+
+### 4. Start the server
 
 ```bash
 openmm serve
@@ -47,9 +55,9 @@ openmm serve
 
 Type your vault password once. The unified socket starts at `/tmp/openmm.sock` — all MCP clients connect here. No credentials exist in any config file.
 
-### 4. Configure your client
+### Manual configuration
 
-All MCP clients use the same config — only the file path differs:
+If you prefer to edit config files directly instead of using `--setup`:
 
 | Client | Config file |
 |--------|-------------|

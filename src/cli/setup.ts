@@ -34,81 +34,17 @@ const CONFIG_PATHS: Record<string, Record<string, string>> = {
   },
 };
 
-interface Exchange {
-  id: string;
-  name: string;
-  fields: { key: string; label: string; secret?: boolean }[];
-  docsUrl: string;
-}
-
-const EXCHANGES: Exchange[] = [
-  {
-    id: 'mexc',
-    name: 'MEXC',
-    fields: [
-      { key: 'MEXC_API_KEY', label: 'API Key' },
-      { key: 'MEXC_SECRET', label: 'Secret Key', secret: true },
-    ],
-    docsUrl: 'https://www.mexc.com/api',
-  },
-  {
-    id: 'gateio',
-    name: 'Gate.io',
-    fields: [
-      { key: 'GATEIO_API_KEY', label: 'API Key' },
-      { key: 'GATEIO_SECRET', label: 'Secret Key', secret: true },
-    ],
-    docsUrl: 'https://www.gate.io/myaccount/api_key_manage',
-  },
-  {
-    id: 'kraken',
-    name: 'Kraken',
-    fields: [
-      { key: 'KRAKEN_API_KEY', label: 'API Key' },
-      { key: 'KRAKEN_SECRET', label: 'Private Key', secret: true },
-    ],
-    docsUrl: 'https://www.kraken.com/u/security/api',
-  },
-  {
-    id: 'bitget',
-    name: 'Bitget',
-    fields: [
-      { key: 'BITGET_API_KEY', label: 'API Key' },
-      { key: 'BITGET_SECRET', label: 'Secret Key', secret: true },
-      { key: 'BITGET_PASSPHRASE', label: 'Passphrase', secret: true },
-    ],
-    docsUrl: 'https://www.bitget.com/account/newapi',
-  },
-];
+const MCP_ENV = {
+  MCP_TRANSPORT: 'stdio',
+  OPENMM_SOCKET: '/tmp/openmm.sock',
+  PAYMENT_SERVER: 'https://mcp.openmm.io',
+  X402_TESTNET: 'true',
+};
 
 function createReadlineInterface(): readline.Interface {
   return readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-  });
-}
-
-function question(rl: readline.Interface, prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(prompt, (answer) => {
-      resolve(answer.trim());
-    });
-  });
-}
-
-function selectOption(rl: readline.Interface, prompt: string, options: string[]): Promise<string> {
-  return new Promise((resolve) => {
-    console.log(`\n${prompt}`);
-    options.forEach((opt, i) => console.log(`  ${i + 1}. ${opt}`));
-    rl.question('\nEnter number: ', (answer) => {
-      const index = parseInt(answer.trim()) - 1;
-      if (index >= 0 && index < options.length) {
-        resolve(options[index]);
-      } else {
-        console.log('Invalid selection, using first option.');
-        resolve(options[0]);
-      }
-    });
   });
 }
 
@@ -121,7 +57,7 @@ function selectMultiple(
     console.log(`\n${prompt}`);
     options.forEach((opt, i) => console.log(`  ${i + 1}. ${opt.name}`));
     console.log('\n  Enter numbers separated by commas (e.g., 1,2,3)');
-    console.log('  Or press Enter for all exchanges');
+    console.log('  Or press Enter for all');
     rl.question('\nYour selection: ', (answer) => {
       if (!answer.trim()) {
         resolve(options.map((o) => o.id));
@@ -143,11 +79,10 @@ function selectMultiple(
 function readConfig(configPath: string): Record<string, unknown> {
   try {
     if (fs.existsSync(configPath)) {
-      const content = fs.readFileSync(configPath, 'utf-8');
-      return JSON.parse(content);
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     }
   } catch {
-    // File doesn't exist or is invalid JSON
+    // File doesn't exist or invalid JSON
   }
   return {};
 }
@@ -171,7 +106,7 @@ const BANNER = `
 ║    ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝     ╚═╝╚═╝     ╚═╝   ║
 ║                                                               ║
 ║   AI-Native Market Making Infrastructure                      ║
-║   Configure your exchange API credentials                     ║
+║   Configure MCP clients to use the unified vault              ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 `;
@@ -183,7 +118,6 @@ async function main(): Promise<void> {
   const platform = process.platform as 'darwin' | 'win32' | 'linux';
 
   try {
-    // Select clients (multi-select)
     const clientOptions = Object.keys(CONFIG_PATHS).map((name) => ({ id: name, name }));
     const selectedClientNames = await selectMultiple(
       rl,
@@ -191,7 +125,6 @@ async function main(): Promise<void> {
       clientOptions
     );
 
-    // Get config paths for selected clients
     const selectedClients: { name: string; path: string }[] = [];
     for (const clientName of selectedClientNames) {
       const configPath = CONFIG_PATHS[clientName][platform];
@@ -205,88 +138,26 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    console.log(`\n📁 Will configure ${selectedClients.length} client(s):`);
-    selectedClients.forEach((c) => console.log(`   • ${c.name}: ${c.path}`));
-
-    // Select exchanges
-    const exchangeOptions = EXCHANGES.map((e) => ({ id: e.id, name: e.name }));
-    const selectedExchangeIds = await selectMultiple(
-      rl,
-      'Which exchanges do you want to configure?',
-      exchangeOptions
-    );
-
-    const selectedExchanges = EXCHANGES.filter((e) => selectedExchangeIds.includes(e.id));
-
-    if (selectedExchanges.length === 0) {
-      console.log('\n⚠️  No exchanges selected. Exiting.');
-      process.exit(0);
-    }
-
-    // Collect credentials
-    const env: Record<string, string> = {};
-
-    for (const exchange of selectedExchanges) {
-      console.log(`\n🔐 ${exchange.name} credentials`);
-      console.log(`   Get your API key at: ${exchange.docsUrl}`);
-
-      for (const field of exchange.fields) {
-        const value = await question(rl, `   ${field.label}: `);
-        if (value) {
-          env[field.key] = value;
-        }
-      }
-    }
-
-    // Write config to all selected clients
     for (const client of selectedClients) {
-      // Read existing config
       const config = readConfig(client.path);
 
-      // Ensure mcpServers exists
       if (!config.mcpServers) {
         config.mcpServers = {};
       }
 
-      const existingServers = config.mcpServers as Record<string, unknown>;
+      const servers = config.mcpServers as Record<string, unknown>;
 
-      // Check for existing openmm config and preserve existing keys
-      const existingOpenmm = existingServers['openmm'] as
-        | { env?: Record<string, string> }
-        | undefined;
-      const existingEnv = existingOpenmm?.env || {};
-
-      // Merge existing env with new credentials (new values override)
-      const mergedEnv = { ...existingEnv, ...env };
-
-      // Add openmm server
-      existingServers['openmm'] = {
+      servers['openmm'] = {
         command: 'npx',
         args: ['-y', '@qbtlabs/openmm-mcp'],
-        env: mergedEnv,
+        env: { ...MCP_ENV },
       };
 
-      // Write config
       writeConfig(client.path, config);
-
-      console.log(`\n✅ OpenMM configured for ${client.name}`);
-      console.log(`   ${client.path}`);
+      console.log(`✅ ${client.name}: ${client.path}`);
     }
 
-    // Show configured exchanges
-    const configuredExchanges: string[] = [];
-    if (env.MEXC_API_KEY) configuredExchanges.push('MEXC');
-    if (env.GATEIO_API_KEY) configuredExchanges.push('Gate.io');
-    if (env.KRAKEN_API_KEY) configuredExchanges.push('Kraken');
-    if (env.BITGET_API_KEY) configuredExchanges.push('Bitget');
-
-    if (configuredExchanges.length > 0) {
-      console.log(`\n📊 Configured exchanges: ${configuredExchanges.join(', ')}`);
-    }
-
-    const clientNames = selectedClients.map((c) => c.name).join(', ');
-    console.log(`\n🔄 Restart ${clientNames} to activate the changes.`);
-    console.log('\n💡 Try asking your agent: "What is my balance on MEXC?"\n');
+    console.log(`\n✓ Config updated. Run 'openmm serve' before launching your client.\n`);
   } finally {
     rl.close();
   }
