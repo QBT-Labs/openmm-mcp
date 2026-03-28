@@ -1,23 +1,25 @@
 #!/usr/bin/env node
 /**
  * OpenMM Vault CLI
- * 
- * Manage encrypted exchange credentials.
- * 
+ *
+ * Manage encrypted exchange and wallet credentials.
+ *
  * Usage:
- *   openmm-vault init              Create a new vault
- *   openmm-vault info              Show vault info
- *   openmm-vault add <exchange>    Add exchange credentials
- *   openmm-vault list              List configured exchanges
- *   openmm-vault remove <exchange> Remove exchange credentials
- *   openmm-vault export            Export credentials (careful!)
- *   openmm-vault change-password   Change vault password
- *   openmm-vault destroy           Delete the vault
+ *   openmm-vault init                Create a new vault (optionally add wallet)
+ *   openmm-vault info                Show vault info
+ *   openmm-vault add <exchange>      Add exchange credentials
+ *   openmm-vault set-wallet          Set wallet private key
+ *   openmm-vault remove-wallet       Remove wallet credentials
+ *   openmm-vault list                List configured credentials
+ *   openmm-vault remove <exchange>   Remove exchange credentials
+ *   openmm-vault export              Export credentials (careful!)
+ *   openmm-vault change-password     Change vault password
+ *   openmm-vault destroy             Delete the vault
  */
 
 import { createInterface } from 'readline';
 import { Vault, createVault } from './vault.js';
-import type { ExchangeId, ExchangeCredentials } from './types.js';
+import type { ExchangeId, ExchangeCredentials, WalletCredentials } from './types.js';
 
 const SUPPORTED_EXCHANGES: ExchangeId[] = [
   'mexc', 'gateio', 'bitget', 'kraken', 'binance', 'coinbase', 'okx'
@@ -121,14 +123,38 @@ async function cmdInit(vault: Vault): Promise<void> {
     process.exit(1);
   }
   
-  const confirm = await prompt('Confirm password: ', true);
-  if (password !== confirm) {
+  const confirmPw = await prompt('Confirm password: ', true);
+  if (password !== confirmPw) {
     console.error('❌ Passwords do not match');
     process.exit(1);
   }
 
   await vault.init(password);
   console.log('\n✅ Vault created at', vault.getPath());
+
+  // Offer to add wallet during init
+  const addWallet = await confirm('\nAdd wallet now?');
+  if (addWallet) {
+    // Vault is already unlocked from init
+    console.log('\n📝 Enter wallet credentials:\n');
+
+    const privateKey = await prompt('Private key (hex, 0x...): ', true);
+    if (!privateKey) {
+      console.error('❌ Private key is required — skipping wallet');
+    } else {
+      const address = await prompt('EVM address (0x...): ');
+      if (!address.startsWith('0x')) {
+        console.error('❌ Address must start with 0x — skipping wallet');
+      } else {
+        const chain = await prompt('Chain [base]: ') || 'base';
+        const wallet: WalletCredentials = { address, chain, privateKey };
+        await vault.setWallet(wallet);
+        console.log(`\n✅ Wallet saved (${address})`);
+      }
+    }
+  }
+
+  vault.lock();
   console.log('\n💡 Next: Add exchange credentials with "openmm-vault add mexc"');
 }
 
@@ -148,10 +174,12 @@ async function cmdInfo(vault: Vault): Promise<void> {
   console.log('\n📦 OpenMM Vault');
   console.log('   Path:', vault.getPath());
   console.log('   Version:', info.version);
+  if (info.name) console.log('   Name:', info.name);
   console.log('   Created:', info.createdAt);
   console.log('   Updated:', info.updatedAt);
+  console.log('   Wallet:', info.hasWallet ? info.walletAddress : '(none)');
   console.log('   Exchanges:', info.exchanges.length ? info.exchanges.join(', ') : '(none)');
-  
+
   vault.lock();
 }
 
@@ -216,12 +244,20 @@ async function cmdList(vault: Vault): Promise<void> {
   await vault.unlock(password);
 
   const exchanges = vault.listExchanges();
-  
-  console.log('\n📋 Configured Exchanges:\n');
-  
-  if (exchanges.length === 0) {
+  const wallet = vault.getWallet();
+
+  console.log('\n📋 Configured Credentials:\n');
+
+  // Wallet
+  if (wallet) {
+    console.log(`   🔑 wallet     ${wallet.address} (${wallet.chain})`);
+  }
+
+  // Exchanges
+  if (exchanges.length === 0 && !wallet) {
     console.log('   (none)');
     console.log('\n💡 Add with: openmm-vault add <exchange>');
+    console.log('   Set wallet: openmm-vault set-wallet');
   } else {
     for (const id of exchanges) {
       const creds = vault.getExchange(id);
@@ -229,7 +265,7 @@ async function cmdList(vault: Vault): Promise<void> {
       console.log(`   • ${id.padEnd(10)} ${keyPreview}`);
     }
   }
-  
+
   vault.lock();
 }
 
@@ -279,9 +315,10 @@ async function cmdExport(vault: Vault): Promise<void> {
   await vault.unlock(password);
 
   const exchanges = vault.getAllExchanges();
-  
+  const wallet = vault.getWallet();
+
   console.log('\n--- BEGIN CREDENTIALS ---');
-  console.log(JSON.stringify(exchanges, null, 2));
+  console.log(JSON.stringify({ wallet: wallet || null, exchanges }, null, 2));
   console.log('--- END CREDENTIALS ---\n');
   
   vault.lock();
@@ -345,21 +382,97 @@ async function cmdDestroy(vault: Vault): Promise<void> {
 }
 
 /**
+ * Command: set-wallet
+ */
+async function cmdSetWallet(vault: Vault): Promise<void> {
+  if (!vault.exists()) {
+    console.error('❌ No vault found. Run "openmm-vault init" first.');
+    process.exit(1);
+  }
+
+  const password = await prompt('Vault password: ', true);
+  await vault.unlock(password);
+
+  const existing = vault.getWallet();
+  if (existing) {
+    const update = await confirm(`\n⚠️  Wallet already configured (${existing.address}). Replace?`);
+    if (!update) {
+      vault.lock();
+      return;
+    }
+  }
+
+  console.log('\n📝 Enter wallet credentials:\n');
+
+  const privateKey = await prompt('Private key (hex): ', true);
+  if (!privateKey) {
+    console.error('❌ Private key is required');
+    vault.lock();
+    process.exit(1);
+  }
+
+  const address = await prompt('EVM address (0x...): ');
+  if (!address.startsWith('0x')) {
+    console.error('❌ Address must start with 0x');
+    vault.lock();
+    process.exit(1);
+  }
+
+  const chain = await prompt('Chain [base]: ') || 'base';
+
+  const wallet: WalletCredentials = { address, chain, privateKey };
+  await vault.setWallet(wallet);
+  console.log(`\n✅ Wallet saved (${address})`);
+
+  vault.lock();
+}
+
+/**
+ * Command: remove-wallet
+ */
+async function cmdRemoveWallet(vault: Vault): Promise<void> {
+  if (!vault.exists()) {
+    console.error('❌ No vault found.');
+    process.exit(1);
+  }
+
+  const password = await prompt('Password: ', true);
+  await vault.unlock(password);
+
+  const confirmed = await confirm('\n⚠️  Remove wallet credentials?');
+  if (!confirmed) {
+    vault.lock();
+    return;
+  }
+
+  const removed = await vault.removeWallet();
+  if (removed) {
+    console.log('\n✅ Wallet removed');
+  } else {
+    console.log('\n⚠️  No wallet found in vault');
+  }
+
+  vault.lock();
+}
+
+/**
  * Show usage
  */
 function showUsage(): void {
   console.log(`
-OpenMM Vault - Encrypted Exchange Credentials
+OpenMM Vault - Encrypted Exchange & Wallet Credentials
 
 Usage:
-  openmm-vault init              Create a new vault
-  openmm-vault info              Show vault info
-  openmm-vault add <exchange>    Add exchange credentials
-  openmm-vault list              List configured exchanges
-  openmm-vault remove <exchange> Remove exchange credentials
-  openmm-vault export            Export credentials (careful!)
-  openmm-vault change-password   Change vault password
-  openmm-vault destroy           Delete the vault
+  openmm-vault init                Create a new vault (optionally add wallet)
+  openmm-vault info                Show vault info
+  openmm-vault add <exchange>      Add exchange credentials
+  openmm-vault set-wallet          Set wallet private key
+  openmm-vault remove-wallet       Remove wallet credentials
+  openmm-vault list                List configured credentials
+  openmm-vault remove <exchange>   Remove exchange credentials
+  openmm-vault export              Export credentials (careful!)
+  openmm-vault change-password     Change vault password
+  openmm-vault destroy             Delete the vault
 
 Supported Exchanges:
   ${SUPPORTED_EXCHANGES.join(', ')}
@@ -367,7 +480,7 @@ Supported Exchanges:
 Examples:
   openmm-vault init
   openmm-vault add mexc
-  openmm-vault add gateio
+  openmm-vault set-wallet
   openmm-vault list
 `);
 }
@@ -395,6 +508,12 @@ async function main(): Promise<void> {
           process.exit(1);
         }
         await cmdAdd(vault, args[1]);
+        break;
+      case 'set-wallet':
+        await cmdSetWallet(vault);
+        break;
+      case 'remove-wallet':
+        await cmdRemoveWallet(vault);
         break;
       case 'list':
         await cmdList(vault);

@@ -1,8 +1,8 @@
 /**
  * OpenMM Vault Types
- * 
+ *
  * Universal encrypted credential storage for MCP servers.
- * Keeps sensitive data (API keys, secrets) out of environment variables.
+ * Keeps sensitive data (API keys, secrets, wallet keys) out of environment variables.
  */
 
 /**
@@ -21,15 +21,24 @@ export interface ExchangeCredentials {
 export type ExchangeId = 'mexc' | 'gateio' | 'bitget' | 'kraken' | 'binance' | 'coinbase' | 'okx';
 
 /**
- * Vault data structure (encrypted on disk)
+ * Wallet credentials for x402 payment signing
+ */
+export interface WalletCredentials {
+  address: string;       // EVM address (0x...)
+  chain: string;         // e.g. 'base', 'base-sepolia'
+  privateKey: string;    // Hex-encoded private key (encrypted at rest)
+}
+
+/**
+ * Vault data structure v2 (encrypted on disk)
  */
 export interface VaultData {
   version: number;
+  name?: string;
   createdAt: string;
   updatedAt: string;
+  wallet?: WalletCredentials;
   exchanges: Partial<Record<ExchangeId, ExchangeCredentials>>;
-  // Extensible: add more credential types as needed
-  custom?: Record<string, unknown>;
 }
 
 /**
@@ -61,4 +70,4 @@ export interface VaultConfig {
  */
 export const DEFAULT_VAULT_PATH = '~/.openmm/vault.enc';
 export const DEFAULT_ITERATIONS = 100000;
-export const VAULT_VERSION = 1;
+export const VAULT_VERSION = 2;

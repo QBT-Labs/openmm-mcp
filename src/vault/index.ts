@@ -12,6 +12,7 @@ export type {
   EncryptedVault,
   ExchangeId,
   ExchangeCredentials,
+  WalletCredentials,
 } from './types.js';
 export {
   DEFAULT_VAULT_PATH,

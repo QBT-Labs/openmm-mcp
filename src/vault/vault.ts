@@ -15,6 +15,7 @@ import type {
   EncryptedVault,
   ExchangeId,
   ExchangeCredentials,
+  WalletCredentials,
 } from './types.js';
 import {
   DEFAULT_VAULT_PATH,
@@ -75,7 +76,7 @@ export class Vault {
       throw new Error(`Vault already exists at ${this.path}`);
     }
 
-    // Create empty vault data
+    // Create empty vault data (v2)
     const now = new Date().toISOString();
     this.data = {
       version: VAULT_VERSION,
@@ -184,6 +185,36 @@ export class Vault {
   }
 
   /**
+   * Set wallet credentials
+   */
+  async setWallet(wallet: WalletCredentials): Promise<void> {
+    this.ensureUnlocked();
+    this.data!.wallet = wallet;
+    this.data!.updatedAt = new Date().toISOString();
+    await this.save();
+  }
+
+  /**
+   * Get wallet credentials
+   */
+  getWallet(): WalletCredentials | undefined {
+    this.ensureUnlocked();
+    return this.data!.wallet;
+  }
+
+  /**
+   * Remove wallet credentials
+   */
+  async removeWallet(): Promise<boolean> {
+    this.ensureUnlocked();
+    if (!this.data!.wallet) return false;
+    delete this.data!.wallet;
+    this.data!.updatedAt = new Date().toISOString();
+    await this.save();
+    return true;
+  }
+
+  /**
    * List configured exchanges
    */
   listExchanges(): ExchangeId[] {
@@ -202,13 +233,16 @@ export class Vault {
   /**
    * Get vault info (without sensitive data)
    */
-  getInfo(): { version: number; createdAt: string; updatedAt: string; exchanges: ExchangeId[] } {
+  getInfo(): { version: number; name?: string; createdAt: string; updatedAt: string; exchanges: ExchangeId[]; hasWallet: boolean; walletAddress?: string } {
     this.ensureUnlocked();
     return {
       version: this.data!.version,
+      name: this.data!.name,
       createdAt: this.data!.createdAt,
       updatedAt: this.data!.updatedAt,
       exchanges: this.listExchanges(),
+      hasWallet: !!this.data!.wallet,
+      walletAddress: this.data!.wallet?.address,
     };
   }
 
