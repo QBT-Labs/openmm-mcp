@@ -31,7 +31,7 @@ MCP server for [OpenMM](https://github.com/3rd-Eye-Labs/OpenMM) — exposes mark
 npm install -g @qbtlabs/openmm-mcp
 ```
 
-### 2. Initialize vault
+### 2. Initialize encrypted vault
 
 ```bash
 openmm-init
@@ -113,19 +113,50 @@ All clients connect to the same running `openmm serve` — one vault, one socket
 
 ## Hosted Server with x402 Payments
 
-Connect to `mcp.openmm.io` — no local installation, no API keys for public data. Pay per tool call with USDC on Base.
+Connect to `mcp.openmm.io` — no local installation needed for public data.
+Pay per tool call with USDC on Base.
+
+### How it works
 
 ```
-Your AI Agent → x402 Proxy → mcp.openmm.io → Data
-                    ↓
-            Signs USDC payment
-                    ↓
-            On-chain settlement (Base)
+AI Agent (Claude / Cursor / Windsurf)
+│  MCP stdio — no keys in config
+▼
+MCP Client Process
+(reads OPENMM_SOCKET — credentials never here)
+│  Unix socket /tmp/openmm.sock (mode 0600)
+▼
+openmm serve — unified vault process
+┌──────────────────────────────────┐
+│  ~/.openmm/vault.enc             │
+│  AES-256-GCM + PBKDF2           │  ← wallet key + exchange keys, one vault
+│            │                     │
+│  Policy Engine                   │  ← maxPerTx, maxPerDay, allowedChains
+│  (checked before key is touched) │
+│            │                     │
+│  signAndWipe()                   │  ← key used inline, wiped from memory
+└──────────────────────────────────┘
+│  EIP-3009 signature only
+▼
+mcp.openmm.io → x402 verification → Base L2 settlement
 ```
+
+### Security properties
+
+| Property | How |
+|----------|-----|
+| Keys encrypted at rest | AES-256-GCM + PBKDF2 in `~/.openmm/vault.enc` |
+| Keys never in client memory | MCP process only holds socket path |
+| Keys never in config files | No API keys, no private keys anywhere in config |
+| Process isolation | Signing happens in `openmm serve`, not in the AI agent process |
+| Policy enforcement | Spending limits checked before private key is accessed |
+| Memory safety | `signAndWipe()` — key used once, goes out of scope immediately |
+
+### Payment flow
 
 1. Agent calls a tool
 2. Server returns `402 Payment Required` with price
-3. Your wallet signs an EIP-3009 authorization (gasless)
+3. `openmm serve` signs EIP-3009 authorization (gasless — no ETH needed)
 4. Server submits payment on-chain and returns data
 
 ### Tool Pricing
@@ -246,33 +277,6 @@ Supported exchanges: `mexc`, `gateio`, `bitget`, `kraken`, `binance`, `coinbase`
 - **Socket:** `/tmp/openmm.sock` mode `0600` — the socket is the authentication boundary
 - **Policy:** Spending limits enforced at the socket before the private key is touched
 - **Isolation:** Private key never enters any MCP client process memory — signing happens in the `openmm serve` process via IPC
-
----
-
-## Self-Hosting
-
-### Cloudflare Workers
-
-```bash
-git clone https://github.com/QBT-Labs/openmm-mcp-worker.git
-cd openmm-mcp-worker
-wrangler secret put MEXC_API_KEY
-wrangler secret put MEXC_SECRET
-wrangler deploy
-```
-
-### Node.js HTTP
-
-```bash
-MCP_TRANSPORT=http PORT=3000 npx @qbtlabs/openmm-mcp
-```
-
-### Docker
-
-```bash
-docker build -t openmm-mcp .
-docker run -p 3000:3000 -e MCP_TRANSPORT=http openmm-mcp
-```
 
 ---
 
