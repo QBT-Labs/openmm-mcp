@@ -156,6 +156,9 @@ export function registerStrategyTools(server: McpServer): void {
                 totalSellValue: grid
                   .filter((l) => l.side === 'sell')
                   .reduce((s, l) => s + l.price * l.orderSize, 0),
+                capitalRequired: grid
+                  .filter((l) => l.side === 'buy')
+                  .reduce((s, l) => s + l.price * l.orderSize, 0),
                 ...(dryRun ? {} : { placedOrders }),
                 exchange: validExchange,
                 symbol: validSymbol,
