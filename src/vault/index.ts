@@ -1,6 +1,6 @@
 /**
  * OpenMM Vault Module
- * 
+ *
  * Encrypted credential storage for MCP servers.
  */
 
@@ -15,8 +15,4 @@ export type {
   WalletCredentials,
   SpendingPolicy,
 } from './types.js';
-export {
-  DEFAULT_VAULT_PATH,
-  DEFAULT_ITERATIONS,
-  VAULT_VERSION,
-} from './types.js';
+export { DEFAULT_VAULT_PATH, DEFAULT_ITERATIONS, VAULT_VERSION } from './types.js';

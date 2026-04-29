@@ -19,11 +19,18 @@ const ENV_VAR_MAP: Record<ExchangeId, { key: string; secret: string; passphrase?
   bitget: { key: 'BITGET_API_KEY', secret: 'BITGET_SECRET', passphrase: 'BITGET_PASSPHRASE' },
   kraken: { key: 'KRAKEN_API_KEY', secret: 'KRAKEN_SECRET' },
   binance: { key: 'BINANCE_API_KEY', secret: 'BINANCE_SECRET' },
-  coinbase: { key: 'COINBASE_API_KEY', secret: 'COINBASE_SECRET', passphrase: 'COINBASE_PASSPHRASE' },
+  coinbase: {
+    key: 'COINBASE_API_KEY',
+    secret: 'COINBASE_SECRET',
+    passphrase: 'COINBASE_PASSPHRASE',
+  },
   okx: { key: 'OKX_API_KEY', secret: 'OKX_SECRET', passphrase: 'OKX_PASSPHRASE' },
 };
 
-function setExchangeEnvVars(exchangeId: string, creds: { apiKey: string; secret: string; passphrase?: string }): boolean {
+function setExchangeEnvVars(
+  exchangeId: string,
+  creds: { apiKey: string; secret: string; passphrase?: string }
+): boolean {
   const envVars = ENV_VAR_MAP[exchangeId as ExchangeId];
   if (!envVars) return false;
 

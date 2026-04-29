@@ -24,9 +24,12 @@ async function show(vault: Vault): Promise<void> {
   } else {
     if (policy.maxPerTx) console.log(`  Max per tx:          ${policy.maxPerTx} USDC`);
     if (policy.maxPerDay) console.log(`  Max per day:         ${policy.maxPerDay} USDC`);
-    if (policy.allowedChains?.length) console.log(`  Allowed chains:      ${policy.allowedChains.join(', ')}`);
-    if (policy.allowedRecipients?.length) console.log(`  Allowed recipients:  ${policy.allowedRecipients.join(', ')}`);
-    if (policy.blockedRecipients?.length) console.log(`  Blocked recipients:  ${policy.blockedRecipients.join(', ')}`);
+    if (policy.allowedChains?.length)
+      console.log(`  Allowed chains:      ${policy.allowedChains.join(', ')}`);
+    if (policy.allowedRecipients?.length)
+      console.log(`  Allowed recipients:  ${policy.allowedRecipients.join(', ')}`);
+    if (policy.blockedRecipients?.length)
+      console.log(`  Blocked recipients:  ${policy.blockedRecipients.join(', ')}`);
   }
 
   vault.lock();
@@ -56,7 +59,9 @@ async function set(vault: Vault, field: string, value: string): Promise<void> {
       break;
     default:
       console.error(`❌ Unknown policy field: ${field}`);
-      console.error('   Fields: max-per-tx, max-per-day, allowed-chains, allowed-recipients, blocked-recipients');
+      console.error(
+        '   Fields: max-per-tx, max-per-day, allowed-chains, allowed-recipients, blocked-recipients'
+      );
       vault.lock();
       process.exit(1);
   }

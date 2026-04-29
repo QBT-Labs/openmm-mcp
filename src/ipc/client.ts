@@ -7,10 +7,13 @@ export class UnifiedIPCClient {
   private socketPath: string;
   private socket: Socket | null = null;
   private requestCounter = 0;
-  private pendingRequests: Map<string, {
-    resolve: (value: IPCResponse) => void;
-    reject: (error: Error) => void;
-  }> = new Map();
+  private pendingRequests: Map<
+    string,
+    {
+      resolve: (value: IPCResponse) => void;
+      reject: (error: Error) => void;
+    }
+  > = new Map();
 
   constructor(socketPath?: string) {
     this.socketPath = socketPath || process.env.OPENMM_SOCKET || DEFAULT_SOCKET_PATH;
@@ -99,7 +102,9 @@ export class UnifiedIPCClient {
     return (res.data as { exchanges: string[] }).exchanges;
   }
 
-  async getCredentials(exchange: string): Promise<{ apiKey: string; secret: string; passphrase?: string } | null> {
+  async getCredentials(
+    exchange: string
+  ): Promise<{ apiKey: string; secret: string; passphrase?: string } | null> {
     const res = await this.request({ type: 'get_credentials', exchange });
     if (!res.success) return null;
     return res.data as { apiKey: string; secret: string; passphrase?: string };
@@ -107,13 +112,27 @@ export class UnifiedIPCClient {
 
   async signPayment(payload: SignPaymentPayload): Promise<{
     signature: string;
-    authorization: { from: string; to: string; value: string; validAfter: string; validBefore: string; nonce: string };
+    authorization: {
+      from: string;
+      to: string;
+      value: string;
+      validAfter: string;
+      validBefore: string;
+      nonce: string;
+    };
   }> {
     const res = await this.request({ type: 'sign_payment', payload });
     if (!res.success) throw new Error(res.error || 'Signing failed');
     return res.data as {
       signature: string;
-      authorization: { from: string; to: string; value: string; validAfter: string; validBefore: string; nonce: string };
+      authorization: {
+        from: string;
+        to: string;
+        value: string;
+        validAfter: string;
+        validBefore: string;
+        nonce: string;
+      };
     };
   }
 }

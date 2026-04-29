@@ -11,8 +11,8 @@
 export interface ExchangeCredentials {
   apiKey: string;
   secret: string;
-  passphrase?: string;  // Required for some exchanges (e.g., Bitget)
-  subaccount?: string;  // Optional subaccount identifier
+  passphrase?: string; // Required for some exchanges (e.g., Bitget)
+  subaccount?: string; // Optional subaccount identifier
 }
 
 /**
@@ -24,9 +24,9 @@ export type ExchangeId = 'mexc' | 'gateio' | 'bitget' | 'kraken' | 'binance' | '
  * Wallet credentials for x402 payment signing
  */
 export interface WalletCredentials {
-  address: string;       // EVM address (0x...)
-  chain: string;         // e.g. 'base', 'base-sepolia'
-  privateKey: string;    // Hex-encoded private key (encrypted at rest)
+  address: string; // EVM address (0x...)
+  chain: string; // e.g. 'base', 'base-sepolia'
+  privateKey: string; // Hex-encoded private key (encrypted at rest)
 }
 
 export interface SpendingPolicy {
@@ -55,9 +55,9 @@ export interface EncryptedVault {
   algorithm: 'aes-256-gcm';
   kdf: 'pbkdf2';
   iterations: number;
-  salt: string;      // Base64
-  iv: string;        // Base64
-  authTag: string;   // Base64
+  salt: string; // Base64
+  iv: string; // Base64
+  authTag: string; // Base64
   ciphertext: string; // Base64
 }
 
