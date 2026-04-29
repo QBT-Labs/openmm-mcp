@@ -20,12 +20,12 @@ interface JWTPayload {
 async function generateJWT(payload: JWTPayload, env: Env): Promise<string> {
   const header = { alg: 'HS256', typ: 'JWT' };
   const secret = env.JWT_SECRET || 'development-secret-change-in-production';
-  
+
   const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '');
   const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '');
-  
+
   const data = `${encodedHeader}.${encodedPayload}`;
-  
+
   // Use Web Crypto API for HMAC-SHA256
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secret);
@@ -36,10 +36,13 @@ async function generateJWT(payload: JWTPayload, env: Env): Promise<string> {
     false,
     ['sign']
   );
-  
+
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, '');
-  
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(
+    /=/g,
+    ''
+  );
+
   return `${data}.${encodedSignature}`;
 }
 
@@ -88,7 +91,8 @@ export default {
     if (url.pathname === '/verify-payment' && request.method === 'POST') {
       const { configure, setToolPrices, getToolPrice } = await import('@qbtlabs/x402');
       const { parsePaymentHeader } = await import('@qbtlabs/x402');
-      const { verifyWithFacilitator, settleWithFacilitator, buildFacilitatorRequirements } = await import('@qbtlabs/x402');
+      const { verifyWithFacilitator, settleWithFacilitator, buildFacilitatorRequirements } =
+        await import('@qbtlabs/x402');
       const { TOOL_PRICING } = await import('./payment/index.js');
 
       // Configure x402
@@ -100,7 +104,7 @@ export default {
         setToolPrices(TOOL_PRICING as any);
       }
 
-      const body = await request.json() as { tool?: string; exchange?: string };
+      const body = (await request.json()) as { tool?: string; exchange?: string };
       const tool = body.tool || 'unknown';
       const exchange = body.exchange || '';
 
@@ -110,7 +114,7 @@ export default {
       if (!paymentHeader) {
         const pricing = getToolPrice(tool);
         const requirements = buildFacilitatorRequirements(tool);
-        
+
         return new Response(
           JSON.stringify({
             error: 'Payment Required',
@@ -120,28 +124,31 @@ export default {
           {
             status: 402,
             headers: { 'Content-Type': 'application/json' },
-          },
+          }
         );
       }
 
       // Parse payment
       const payment = parsePaymentHeader(paymentHeader);
       if (!payment) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid payment header format' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } },
-        );
+        return new Response(JSON.stringify({ error: 'Invalid payment header format' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
 
       // Log payment received
-      console.log('[x402] Payment received:', JSON.stringify({
-        x402Version: payment.x402Version,
-        network: payment.accepted?.network,
-        amount: payment.accepted?.amount,
-        from: (payment.payload as any)?.authorization?.from,
-        to: payment.accepted?.payTo,
-        signaturePrefix: (payment.payload as any)?.signature?.slice(0, 20) + '...',
-      }));
+      console.log(
+        '[x402] Payment received:',
+        JSON.stringify({
+          x402Version: payment.x402Version,
+          network: payment.accepted?.network,
+          amount: payment.accepted?.amount,
+          from: (payment.payload as any)?.authorization?.from,
+          to: payment.accepted?.payTo,
+          signaturePrefix: (payment.payload as any)?.signature?.slice(0, 20) + '...',
+        })
+      );
 
       // Verify payment via facilitator
       const verification = await verifyWithFacilitator(payment, tool);
@@ -149,7 +156,7 @@ export default {
         console.log('[x402] Verification failed:', verification.error);
         return new Response(
           JSON.stringify({ error: 'Payment verification failed', reason: verification.error }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } },
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
       console.log('[x402] Payment verified ✅');
@@ -160,25 +167,29 @@ export default {
         console.log('[x402] Settlement failed:', settlement.error);
         return new Response(
           JSON.stringify({ error: 'Payment settlement failed', reason: settlement.error }),
-          { status: 402, headers: { 'Content-Type': 'application/json' } },
+          { status: 402, headers: { 'Content-Type': 'application/json' } }
         );
       }
-      
+
       const txHash = settlement.txHash || 'pending';
       console.log('[x402] Payment settled ✅ txHash:', txHash);
 
       // Issue JWT (simplified - in production use proper JWT signing)
-      const jwt = await generateJWT({
-        tool,
-        exchange,
-        payment_tx: txHash,
-        issued_at: Math.floor(Date.now() / 1000),
-        expires_at: Math.floor(Date.now() / 1000) + 300,
-      }, env);
+      const jwt = await generateJWT(
+        {
+          tool,
+          exchange,
+          payment_tx: txHash,
+          issued_at: Math.floor(Date.now() / 1000),
+          expires_at: Math.floor(Date.now() / 1000) + 300,
+        },
+        env
+      );
 
       return new Response(
-        (console.log('[x402] JWT issued ✅', { tool, exchange, txHash }), JSON.stringify({ jwt, txHash })),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
+        (console.log('[x402] JWT issued ✅', { tool, exchange, txHash }),
+        JSON.stringify({ jwt, txHash })),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

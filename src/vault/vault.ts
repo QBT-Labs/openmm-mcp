@@ -1,6 +1,6 @@
 /**
  * OpenMM Vault
- * 
+ *
  * Encrypted credential storage using AES-256-GCM with PBKDF2 key derivation.
  * Same security model as x402 vault for consistency across QBT Labs projects.
  */
@@ -18,11 +18,7 @@ import type {
   WalletCredentials,
   SpendingPolicy,
 } from './types.js';
-import {
-  DEFAULT_VAULT_PATH,
-  DEFAULT_ITERATIONS,
-  VAULT_VERSION,
-} from './types.js';
+import { DEFAULT_VAULT_PATH, DEFAULT_ITERATIONS, VAULT_VERSION } from './types.js';
 
 /**
  * Expand ~ to home directory
@@ -103,13 +99,7 @@ export class Vault {
 
     // Derive key from password
     const salt = Buffer.from(encrypted.salt, 'base64');
-    this.derivedKey = pbkdf2Sync(
-      password,
-      salt,
-      encrypted.iterations,
-      32,
-      'sha256'
-    );
+    this.derivedKey = pbkdf2Sync(password, salt, encrypted.iterations, 32, 'sha256');
 
     // Decrypt
     const iv = Buffer.from(encrypted.iv, 'base64');
@@ -153,10 +143,10 @@ export class Vault {
    */
   async setExchange(exchangeId: ExchangeId, credentials: ExchangeCredentials): Promise<void> {
     this.ensureUnlocked();
-    
+
     this.data!.exchanges[exchangeId] = credentials;
     this.data!.updatedAt = new Date().toISOString();
-    
+
     await this.save();
   }
 
@@ -173,14 +163,14 @@ export class Vault {
    */
   async removeExchange(exchangeId: ExchangeId): Promise<boolean> {
     this.ensureUnlocked();
-    
+
     if (!this.data!.exchanges[exchangeId]) {
       return false;
     }
-    
+
     delete this.data!.exchanges[exchangeId];
     this.data!.updatedAt = new Date().toISOString();
-    
+
     await this.save();
     return true;
   }
@@ -253,7 +243,18 @@ export class Vault {
   /**
    * Get vault info (without sensitive data)
    */
-  getInfo(): { version: number; name?: string; createdAt: string; updatedAt: string; exchanges: ExchangeId[]; hasWallet: boolean; walletAddress?: string; walletChain?: string; hasPolicy: boolean; policy?: SpendingPolicy } {
+  getInfo(): {
+    version: number;
+    name?: string;
+    createdAt: string;
+    updatedAt: string;
+    exchanges: ExchangeId[];
+    hasWallet: boolean;
+    walletAddress?: string;
+    walletChain?: string;
+    hasPolicy: boolean;
+    policy?: SpendingPolicy;
+  } {
     this.ensureUnlocked();
     return {
       version: this.data!.version,
@@ -274,12 +275,12 @@ export class Vault {
    */
   async changePassword(newPassword: string): Promise<void> {
     this.ensureUnlocked();
-    
+
     // Wipe old key
     if (this.derivedKey) {
       wipeBuffer(this.derivedKey);
     }
-    
+
     // Derive new key and save
     await this.deriveKey(newPassword);
     await this.save();
@@ -301,7 +302,7 @@ export class Vault {
   private async deriveKey(password: string): Promise<void> {
     const salt = randomBytes(32);
     this.derivedKey = pbkdf2Sync(password, salt, this.iterations, 32, 'sha256');
-    
+
     // Store salt for later (needed for decryption)
     (this as any)._salt = salt;
   }
@@ -314,7 +315,7 @@ export class Vault {
 
     // Generate IV
     const iv = randomBytes(16);
-    
+
     // Get or generate salt
     let salt: Buffer;
     if ((this as any)._salt) {
@@ -351,7 +352,7 @@ export class Vault {
 
     // Write with secure permissions
     writeFileSync(this.path, JSON.stringify(encrypted, null, 2), { mode: 0o600 });
-    
+
     wipeBuffer(plaintext);
   }
 

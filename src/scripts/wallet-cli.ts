@@ -58,7 +58,10 @@ async function set(vault: Vault): Promise<void> {
   const existing = vault.getWallet();
   if (existing) {
     const replace = await confirm(`⚠️  Wallet already set (${existing.address}). Replace?`);
-    if (!replace) { vault.lock(); return; }
+    if (!replace) {
+      vault.lock();
+      return;
+    }
   }
 
   const privateKey = await prompt('Private key (hex, 0x...): ', true);
@@ -75,7 +78,7 @@ async function set(vault: Vault): Promise<void> {
     process.exit(1);
   }
 
-  const chain = await prompt('Chain [base]: ') || 'base';
+  const chain = (await prompt('Chain [base]: ')) || 'base';
 
   const wallet: WalletCredentials = { address, chain, privateKey };
   await vault.setWallet(wallet);

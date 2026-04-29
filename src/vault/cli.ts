@@ -22,7 +22,13 @@ import { Vault, createVault } from './vault.js';
 import type { ExchangeId, ExchangeCredentials, WalletCredentials } from './types.js';
 
 const SUPPORTED_EXCHANGES: ExchangeId[] = [
-  'mexc', 'gateio', 'bitget', 'kraken', 'binance', 'coinbase', 'okx'
+  'mexc',
+  'gateio',
+  'bitget',
+  'kraken',
+  'binance',
+  'coinbase',
+  'okx',
 ];
 
 /**
@@ -34,20 +40,20 @@ async function prompt(question: string, hidden = false): Promise<string> {
     const rl = createInterface({
       input: process.stdin,
       output: new Writable({
-        write: (_chunk, _encoding, callback) => callback()
+        write: (_chunk, _encoding, callback) => callback(),
       }),
       terminal: true,
     });
 
     process.stdout.write(question);
-    
+
     return new Promise((resolve) => {
       let password = '';
-      
+
       process.stdin.setRawMode?.(true);
       process.stdin.resume();
       process.stdin.setEncoding('utf8');
-      
+
       const onData = (char: string) => {
         switch (char) {
           case '\n':
@@ -79,7 +85,7 @@ async function prompt(question: string, hidden = false): Promise<string> {
             break;
         }
       };
-      
+
       process.stdin.on('data', onData);
     });
   } else {
@@ -87,7 +93,7 @@ async function prompt(question: string, hidden = false): Promise<string> {
       input: process.stdin,
       output: process.stdout,
     });
-    
+
     return new Promise((resolve) => {
       rl.question(question, (answer) => {
         rl.close();
@@ -116,13 +122,13 @@ async function cmdInit(vault: Vault): Promise<void> {
   }
 
   console.log('🔐 Creating new OpenMM vault...\n');
-  
+
   const password = await prompt('Enter password: ', true);
   if (password.length < 8) {
     console.error('❌ Password must be at least 8 characters');
     process.exit(1);
   }
-  
+
   const confirmPw = await prompt('Confirm password: ', true);
   if (password !== confirmPw) {
     console.error('❌ Passwords do not match');
@@ -146,7 +152,7 @@ async function cmdInit(vault: Vault): Promise<void> {
       if (!address.trim() || !address.startsWith('0x')) {
         console.error('❌ Valid 0x address is required — skipping wallet');
       } else {
-        const chain = await prompt('Chain [base]: ') || 'base';
+        const chain = (await prompt('Chain [base]: ')) || 'base';
         const wallet: WalletCredentials = { address, chain, privateKey };
         await vault.setWallet(wallet);
         console.log(`\n✅ Wallet saved (${address})`);
@@ -211,7 +217,7 @@ async function cmdAdd(vault: Vault, exchangeId: string): Promise<void> {
   }
 
   console.log(`\n📝 Enter ${exchangeId.toUpperCase()} credentials:\n`);
-  
+
   const apiKey = await prompt('API Key: ');
   const secret = await prompt('Secret: ', true);
 
@@ -238,7 +244,7 @@ async function cmdAdd(vault: Vault, exchangeId: string): Promise<void> {
 
   await vault.setExchange(exchangeId as ExchangeId, credentials);
   console.log(`\n✅ ${exchangeId.toUpperCase()} credentials saved`);
-  
+
   vault.lock();
 }
 
@@ -299,13 +305,13 @@ async function cmdRemove(vault: Vault, exchangeId: string): Promise<void> {
   }
 
   const removed = await vault.removeExchange(exchangeId as ExchangeId);
-  
+
   if (removed) {
     console.log(`\n✅ ${exchangeId} removed`);
   } else {
     console.log(`\n⚠️  ${exchangeId} not found in vault`);
   }
-  
+
   vault.lock();
 }
 
@@ -331,7 +337,7 @@ async function cmdExport(vault: Vault): Promise<void> {
   console.log('\n--- BEGIN CREDENTIALS ---');
   console.log(JSON.stringify({ wallet: wallet || null, exchanges }, null, 2));
   console.log('--- END CREDENTIALS ---\n');
-  
+
   vault.lock();
 }
 
@@ -353,7 +359,7 @@ async function cmdChangePassword(vault: Vault): Promise<void> {
     vault.lock();
     process.exit(1);
   }
-  
+
   const confirmPassword = await prompt('Confirm new password: ', true);
   if (newPassword !== confirmPassword) {
     console.error('❌ Passwords do not match');
@@ -363,7 +369,7 @@ async function cmdChangePassword(vault: Vault): Promise<void> {
 
   await vault.changePassword(newPassword);
   console.log('\n✅ Password changed');
-  
+
   vault.lock();
 }
 
@@ -378,7 +384,7 @@ async function cmdDestroy(vault: Vault): Promise<void> {
 
   console.log('\n⚠️  WARNING: This will permanently delete your vault!');
   console.log('   All stored credentials will be lost.\n');
-  
+
   const confirmed = await confirm('Type "destroy" to confirm');
   if (!confirmed) return;
 
@@ -429,7 +435,7 @@ async function cmdSetWallet(vault: Vault): Promise<void> {
     process.exit(1);
   }
 
-  const chain = await prompt('Chain [base]: ') || 'base';
+  const chain = (await prompt('Chain [base]: ')) || 'base';
 
   const wallet: WalletCredentials = { address, chain, privateKey };
   await vault.setWallet(wallet);

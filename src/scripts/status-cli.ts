@@ -36,7 +36,9 @@ async function main(): Promise<void> {
 
       console.log(`  Socket:   ✅ Running (${socketPath})`);
       console.log(`  Wallet:   ${status.wallet || '(none)'}`);
-      console.log(`  Exchanges: ${status.exchanges.length > 0 ? status.exchanges.join(', ') : '(none)'}`);
+      console.log(
+        `  Exchanges: ${status.exchanges.length > 0 ? status.exchanges.join(', ') : '(none)'}`
+      );
     } catch {
       console.log(`  Socket:   ⚠️  Stale socket at ${socketPath}`);
     }

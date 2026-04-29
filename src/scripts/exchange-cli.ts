@@ -13,7 +13,13 @@ import type { ExchangeId, ExchangeCredentials } from '../vault/types.js';
 import { prompt, confirm, unlockVault, requireVault } from '../cli/prompt.js';
 
 const SUPPORTED_EXCHANGES: ExchangeId[] = [
-  'mexc', 'gateio', 'bitget', 'kraken', 'binance', 'coinbase', 'okx',
+  'mexc',
+  'gateio',
+  'bitget',
+  'kraken',
+  'binance',
+  'coinbase',
+  'okx',
 ];
 
 async function list(vault: Vault): Promise<void> {
@@ -46,7 +52,10 @@ async function add(vault: Vault, exchangeId: string): Promise<void> {
   const existing = vault.getExchange(exchangeId as ExchangeId);
   if (existing) {
     const update = await confirm(`⚠️  ${exchangeId} already configured. Update?`);
-    if (!update) { vault.lock(); return; }
+    if (!update) {
+      vault.lock();
+      return;
+    }
   }
 
   const apiKey = await prompt('API Key: ');
@@ -75,7 +84,10 @@ async function remove(vault: Vault, exchangeId: string): Promise<void> {
   await unlockVault(vault);
 
   const confirmed = await confirm(`⚠️  Remove ${exchangeId}?`);
-  if (!confirmed) { vault.lock(); return; }
+  if (!confirmed) {
+    vault.lock();
+    return;
+  }
 
   const removed = await vault.removeExchange(exchangeId as ExchangeId);
   console.log(removed ? `✅ ${exchangeId} removed` : `⚠️  ${exchangeId} not found`);
@@ -91,11 +103,17 @@ async function main(): Promise<void> {
       await list(vault);
       break;
     case 'add':
-      if (!arg) { console.error('Usage: openmm-exchange add <exchange>'); process.exit(1); }
+      if (!arg) {
+        console.error('Usage: openmm-exchange add <exchange>');
+        process.exit(1);
+      }
       await add(vault, arg.toLowerCase());
       break;
     case 'remove':
-      if (!arg) { console.error('Usage: openmm-exchange remove <exchange>'); process.exit(1); }
+      if (!arg) {
+        console.error('Usage: openmm-exchange remove <exchange>');
+        process.exit(1);
+      }
       await remove(vault, arg.toLowerCase());
       break;
     default:
