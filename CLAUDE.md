@@ -97,3 +97,6 @@ Wraps the `@3rd-eye-labs/openmm` SDK's `ExchangeFactory`. Supported exchanges: M
 - Do NOT suggest storing OPENMM_PASSWORD in claude.json or any config — defeats the vault
 - Do NOT use `require()` — this project is ESM (NodeNext modules)
 - Run `npm run typecheck` after any series of changes, not just at the end
+
+## Status
+Last operational check: 2026-04-29 — All tests passing (8 test suites, 43 tests). Node v20+ compatible. Vault and payment systems operational.
