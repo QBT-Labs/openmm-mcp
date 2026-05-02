@@ -292,8 +292,8 @@ Supported exchanges: `mexc`, `gateio`, `bitget`, `kraken`, `binance`, `coinbase`
 ## Development
 
 ```bash
-git clone https://github.com/QBT-Labs/openMM-mcp-agent.git
-cd openMM-mcp-agent
+git clone https://github.com/QBT-Labs/openMM-MCP.git
+cd openMM-MCP
 npm install
 npm run typecheck
 npm run lint
